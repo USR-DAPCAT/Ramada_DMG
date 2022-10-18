@@ -340,15 +340,19 @@ dades<-
 ```{r descriptiva}
 
 
-descrTable(grup_RAM~.,data=dades, show.n = T)
+descrTable(grup_RAM~.,data=dades, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
 
 
 ```
 
 
 
-## 5. Salvar part1 
-```{r SALVAR}
-# saveRDS(dt_plana, file=here::here(params$dir_dades_desti,"dt_plana1.rds"))
+## 5. Salvar dades 
+```{r SALVAR, include=FALSE}
+
+# Directori destí o tot SIDIAP
+if (stringr::str_sub(params$directori_origen,-5)=="SIDIAP") directori_desti="dades" else directori_desti="dades/mostra"
+
+saveRDS(dades, file=here::here(directori_desti,"dt_plana.Rds"))
 
 ```
