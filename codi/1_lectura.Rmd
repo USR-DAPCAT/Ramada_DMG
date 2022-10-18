@@ -1,5 +1,5 @@
 ---
-title: 'Analisis transversal descriptivo . Fecha de corte:  `r params$bd.dindex1`'
+title: 'Diagnóstico de diabetes gestacional en Catalunya y práctica del Ramadán'
 author: "Jordi Real & Rai Puig"
 website: "https://github.com/USR-DAPCAT/"
 
@@ -17,10 +17,9 @@ output:
   word_document: default
 
 params:
-  dir_dades_origen: "dades" 
-  dir_dades_desti: "dades" 
-  bd.dindex1: '20181231'
-  bd.dindex2: '20181231'
+  fitxers_test: TRUE #FALSE #FALSE
+  directori_origen: "../DADES/epiDMGCAT/mostra"  # "../DADES/epiDMGCAT/SIDIAP" "../DADES/epiDMGCAT/mostra"
+  
 ---
 
 
@@ -46,219 +45,202 @@ params:
 >> Generacion de tabla plana y aplicacion de los primeros criterios inclusion 
 
 ```{r setup, include = FALSE}
+
+knitr::opts_chunk$set(warning=F,message=F)
+
+
 #rm(list=ls())
 library(dplyr)
+
 
 # Funcions (provisional, quan tinguem la llibreria , ja no caldra!!!) 
 link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funcions_propies.R","?raw=T")
 devtools::source_url(link_source)
 
-conductor_codis<-here::here("CATALEG.xlsx")
+
+source(here::here("codi","funcions_DMG.R"))
+
+
+conductor_codis<-here::here("cataleg_epiDMG.xls")
+dt_cataleg<-readxl::read_excel(conductor_codis,col_types = "text")
+
+dt_origens<-readxl::read_excel(conductor_codis,col_types = "text",sheet = "origen_etnia")
+
 
 directori_dades_origen<-params$dir_dades_origen
-
-dt_cataleg<-readxl::read_excel(conductor_codis,col_types = "text")%>% select(cod,domini,agr,agr_Farmac,DM2)
-#
-#
-#
 #
 #
 
 ```
 
-```{r estructura_carpetes, eval=FALSE}
-
-# estructura de carpetes: /dades /codi /outputs /docs
-
-# Genero el directori si no existeic
-directori<-paste0("dades")
-if (!file.exists(directori)) {dir.create(file.path(directori), showWarnings = TRUE)}
-  
-directori<-paste0("codi")
-if (!file.exists(directori)) {dir.create(file.path(directori), showWarnings = TRUE)}
-
-directori<-paste0("outputs")
-if (!file.exists(directori)) {dir.create(file.path(directori), showWarnings = TRUE)}
-
-directori<-paste0("docs")
-if (!file.exists(directori)) {dir.create(file.path(directori), showWarnings = TRUE)}
 
 
-```
-
-
-## 1. Lectura previa DataIndex 
+## 1. Generació DataIndex 
 
 ```{r lectura1, include=T}
 # 1 Lectura -----------
 #
+# Llegir dades
+directori_dades_origen<-params$directori_origen
+# directori_dades_origen<-"../DADES/epiDMGCAT/SIDIAP"
 
-#i)
-dt_diagnostics<-readRDS(here::here(directori_dades_origen,"BD_diagnostics.rds")) %>% as_tibble()
+# Generació de data index
 
+# 1. Episodis
+dt_episodis_long<-generacio_num_episodi_index()
 
-#ii)
-dt_poblacio<-readRDS(here::here(directori_dades_origen,"BD_poblacio.rds")) %>% as_tibble()
+# 2. Data index 
+dt_index<-generacio_data_index(dt_episodis_long)
 
 
 
 ```
 
 
+```{r, eval=FALSE}
+
+# directori_dades_origen
+
+"../DADES/epiDMGCAT/SIDIAP_NOV21"
+
+generar_mostra_fitxers(here::here("../DADES/epiDMGCAT/SIDIAP_NOV21"),
+                       fitxer_poblacio = "EPIDMGCAT_entregable_poblacio_20211124_123210.rds",
+                       prefix = "",mida_mostra = 5000)
 
 
-##2. Generar DataIndex
-
-```{r generem la data_Index, include=F}
-
-
-#data_index TRANSVERSAL!
-
-
-
-dt_index<-
-  dt_poblacio %>% select(idp,entrada,sortida) %>% mutate(kk=1) %>%
-  left_join(tibble(dtindex=seq(params$bd.dindex1,params$bd.dindex2,by=10000),kk=1),by="kk") %>%
-  filter(entrada<=dtindex & dtindex<=sortida)  %>%  # Filtro per usuari actiu en data index
-  select(-c(kk,entrada,sortida))
-
-gc()
-
-
-#data_index PROSPECTIU!
-
-
-#data_index<-agregar_problemes(select(dt_diagnostics,idp,cod,dat),
-#                                           bd.dindex = params$bd.dindex2,
-#                                           dt.agregadors=select(dt_cataleg,cod,agr=DM2),
-#                                           finestra.dies=c(-Inf,0),prefix = "INCLUSIO.",cataleg_mana=T) 
-gc()
-
+list.files(here::here("../DADES/epiDMGCAT/SIDIAP_NOV21"))
 
 ```
 
-## 3. Lectura posterior a DataIndex 
 
-```{r lectura2, include=T}
-# 1 Lectura -----------
+```{r lectura_poblacio}
 
-#i)
-dt_facturacio<-readRDS(here::here(directori_dades_origen,"BD_farmacs_facturats.rds")) %>% as_tibble()
-dt_facturacio<-dt_facturacio %>% transmute(idp,cod,dat,env)
+fitxer_txt<-"EPIDMGCAT_entregable_poblacio_20210222_142117.rds"
+dt_poblacio<-readRDS(here::here(directori_dades_origen,fitxer_txt))
+
+fitxer_txt<-"EPIDMGCAT_entregable_variables_geosanitaries_20210222_142117.rds"
+dt_geosanitaries<-readRDS(here::here(directori_dades_origen,fitxer_txt))
+
+fitxer_txt<-"EPIDMGCAT_entregable_variables_socioeconomiques_20210222_142117.rds"
+dt_socioeconomiques<-readRDS(here::here(directori_dades_origen,fitxer_txt))
+
+list.files(here::here(directori_dades_origen))
+
+```
 
 
-#ii)
-dt_tabaquisme<-readRDS(here::here(directori_dades_origen,"BD_tabaquisme.rds")) %>% as_tibble()
+```{r classifica_origen}
 
-#iii)
-dt_analitiques<-readRDS(here::here(directori_dades_origen,"BD_variables_analitiques.rds")) %>% as_tibble()%>%
-  filter(cod=="COLHDL" | cod=="COLLDL" | cod=="COLTOT" | cod=="HBA1C" )
+fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20210222_142117.rds"  
+dt_origen<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% 
+  filter(cod%in%c("PACR003","PACR004"))
 
-
-dt_cliniques<-readRDS(here::here(directori_dades_origen,"BD_variables_cliniques.rds")) %>% as_tibble() %>%select(idp,dat,cod=agr,val)%>%
-  filter(cod=="PAD" | cod=="PAS" | cod=="PES" | cod=="TALLA" | cod=="IMC")
-                                                                                                                                           
-# Fusiono cliniques + variables
-
-dt_variables<-dt_analitiques%>% bind_rows(dt_cliniques) %>% select(-agr)
-
-#table(dt_variables$cod)
-#table(dt_analitiques$cod)
-#table(dt_cliniques$cod)
-#table(dt_cliniques$agr)
 
 
 ```
 
 
-## 4. Generacio GranFuncio+Fusio+Taula Plana
-```{r GranFuncio,include=T}
+```{r origen_musulma}
+
+# Obrir dades idps amb origen
+fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20210222_142117.rds"  
+
+dt_origen<-
+  readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% 
+  filter(cod%in%c("PACR003","PACR004")) %>% 
+  netejar_val_txt() %>% 
+  select(idp,cod,val_txt) 
+
+# agr_pais
+# dt_temp<-
+#   dades %>% transmute(idp,cod="agr_pais",val_txt=agr_pais) %>% filter(val_txt!="") %>% 
+#   group_by(idp) %>% slice(1) %>% ungroup()
+# dt_temp<-dt_poblacio %>% transmute(idp,cod="agr_pais",val_txt=agr_pais) %>% filter(val_txt!="") 
 
 
-
-dtagr_diagnostics<-agregar_problemes(select(dt_diagnostics,idp,cod,dat),
-                                           bd.dindex = dt_index,
-                                           dt.agregadors=select(dt_cataleg,cod,agr=DM2),
-                                           finestra.dies=c(-Inf,0),prefix = "DG.",cataleg_mana=T)%>%select(-dtindex)
-                                                
-
-
-dtagr_facturacio<-agregar_facturacio(
-  dt=dt_facturacio,
-  bd.dindex=dt_index,
-  finestra.dies=c(-90,0),
-  dt.agregadors=select(dt_cataleg,cod,agr=agr_Farmac),
-  prefix="FF.",
-  camp_agregador="agr",
-  agregar_data=T,
-  cataleg_mana = T)%>%select(-dtindex)
-
-dtagr_variables<-agregar_analitiques(dt=dt_variables,
-                                     bd.dindex=dt_index,finestra.dies = c(-365,0))%>%select(-dtindex,
-                                                                                            -COLHDL.dies,
-                                                                                            -COLLDL.dies,
-                                                                                            -COLTOT.dies,
-                                                                                            -HBA1C.dies,
-                                                                                            -IMC.dies,
-                                                                                            -PAD.dies,
-                                                                                            -PAS.dies,
-                                                                                            -PES.dies,
-                                                                                            -TALLA.dies)
-
-dtagr_variables
+# Obrir cataleg origen
+dt_cataleg_origen<-
+  read_conductor(here::here("cataleg_epiDMG.xls"),sheet="origen_etnia") %>% 
+  select(cod,val_txt,MUSULMANA) %>% netejar_val_txt() %>% 
+  mutate(MUSULMANA=if_else(is.na(MUSULMANA),0,1))
 
 
-dt_tabaquisme<-dt_tabaquisme %>% transmute(idp,cod="tabac",dat,val)
-dtagr_tabaquisme<-agregar_analitiques(dt=dt_tabaquisme,bd.dindex=dt_index,finestra.dies = c(-Inf,0))%>%select(-dtindex,-tabac.dies)
-
-
-
-
-#i    dt_index
-#ii   dt_poblacio
-#iii  dtagr_diagnostics
-#iv   dtagr_facturacio
-#v    dtagr_variables
-#vi   dtagr_tabaquisme
-
-
-dt_plana<-dt_index%>%
-left_join(dt_poblacio,by="idp")%>%
-  left_join(dtagr_diagnostics,by="idp")%>%
-    left_join(dtagr_facturacio,by="idp")%>%
-      left_join(dtagr_variables,by="idp")%>%
-        left_join(dtagr_tabaquisme,by="idp")
-    
+dt_origen_musul<-
+  dt_origen %>% left_join(dt_cataleg_origen,by="val_txt") %>% filter(MUSULMANA==1) %>% 
+  group_by(idp) %>% 
+  summarise(MUSULMANA=1, origen=first(val_txt)) %>% 
+  ungroup()
   
 
 
-####################################################################################################
-#NO VA!!!!
-#
-#dt_parametres<-read_excel(here::here(conductor_codis),sheet = "parametres")
-#dt_temp<-Generar_taula_plana(dt_index,cataleg = conductor_codis,parametres = dt_parametres)%>%
-#  select(-dtindex)
-#
-#
-#
-#FILTREM per les dates de la Cohort!
-#
-#dt_poblacio<-
-#  dt_poblacio  %>%
-#  filter(entrada>=params$bd.dindex1 & sortida<=params$bd.dindex2)  
-#
-#
-#
-#dt_plana<-dt_index%>%
-#left_join(dt_poblacio,by="idp")%>%
-# left_join(dt_temp,by=c('idp'))
-#
-#
-####################################################################################################
+
+# # Genero: Etnia x individu (Em carrego aquells que tenen mes d'una )
+# dt_etnia<-
+#   dt_origen %>% 
+#   left_join(dt_cataleg_origen,by = c("cod", "val_txt")) %>% 
+#   filter(!is.na(ETNIA)) %>% 
+#   transmute(idp,ETNIA,val=1) %>% group_by(idp,ETNIA) %>% slice(1) %>% ungroup() %>% 
+#   group_by(idp) %>% mutate(N_etnies=sum(val)) %>% ungroup() %>% 
+#   filter(N_etnies==1) %>% 
+#   select(idp,ETNIA)
+# 
+# # Genero: RACE
+# dt_RACE<-
+#   dt_origen %>% 
+#   left_join(dt_cataleg_origen,by = c("cod", "val_txt")) %>% 
+#   filter(!is.na(RACE)) %>% 
+#   transmute(idp,RACE,val=1) %>% group_by(idp,RACE) %>% slice(1) %>% ungroup() %>% 
+#   group_by(idp) %>% mutate(N_Races=sum(val)) %>% ungroup() %>% 
+#   filter(N_Races==1) %>% 
+#   select(idp,RACE)
+#   
+# dades<-dades %>% 
+#   left_join(dt_etnia, by="idp") %>% 
+#   left_join(dt_RACE,by="idp") 
 
 
+```
+
+```{r periode_exposicio_ramada}
+
+# Generar dt
+
+dt_ramada<-
+  read_conductor(here::here(conductor_codis),sheet="periode_ramada") %>% 
+  transmute(year=as.character(year),periode1_RAM=as.Date(periode1),periode2_RAM=as.Date(periode2))
 
 
+# Definició de marge de seguretat a la finestra en dies
+epsilon<-30
+
+dt_temp<-
+  dt_index %>% 
+  
+  left_join(dt_origen_musul, by="idp") %>%   # fILTRO NOMÉS MUSULMANES
+  filter(MUSULMANA==1) %>% 
+  
+  mutate(year=substr(as.character(dtindex),1,4)) %>% 
+  left_join(dt_ramada, by="year") %>% 
+  mutate(grup_RAM=case_when(
+    
+    (ymd(dtindex) >= periode1_RAM- epsilon ) & (ymd(dtindex) <= periode2_RAM + epsilon)~ 1,
+    TRUE ~ 0
+    )
+    ) %>% 
+  select(idp,id_episodi,dtindex,periode1_RAM,periode2_RAM,grup_RAM,origen) 
+
+  
+# Filtro episodis posteriors o igual a 2010
+dt_index<-dt_temp %>% 
+  filter(dtindex>=20100101)
+
+```
+
+
+```{r DMGnoDMG}
+
+# 3. Generació de variable grup (DMG/noDMG) en funció de SOG
+dt_index_grupDMG<-classificacio_DMG(dt_episodis_long,dt_index)
 
 
 
@@ -266,8 +248,107 @@ left_join(dt_poblacio,by="idp")%>%
 
 ```
 
+```{r preparar_agregacio_dx}
+# list.files(here::here(directori_dades_origen))
+
+fitxer_txt<-"EPIDMGCAT_entregable_diagnostics_20210222_142117.rds"
+dt_diag_ecap<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
+
+fitxer_txt<-"EPIDMGCAT_entregable_cmbdh_diagnostics_20210222_142117.rds"
+dt_diag_hosp<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
+
+dt_diagnostics<-dt_diag_ecap %>% bind_rows(dt_diag_hosp)
+
+```
+
+
+```{r preparar_agregacio_farmacs}
+fitxer_txt<-"EPIDMGCAT_entregable_farmacs_prescrits_20210222_142117.rds" 
+dt_prescrits<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
+
+
+fitxer_txt<-"EPIDMGCAT_entregable_farmacs_facturats_20210222_142117.rds" 
+dt_facturats<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
+
+```
+
+
+```{r preparar_agregacio_analitiques}
+fitxer_txt<-"EPIDMGCAT_entregable_variables_analitiques_20210222_142117.rds" 
+dt_analitiques<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
+
+fitxer_txt<-"EPIDMGCAT_entregable_variables_cliniques_20210222_142117.rds"
+dt_cliniques<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
+
+dt_variables<-dt_analitiques %>% bind_rows(dt_cliniques)
+
+
+# 4. Generacio tabac i fusio sobre analitiques  ! Pendent de també agregar segons fitxer historic normal
+dt_tabac<-generacio_historic_tabac(dt_cataleg)
+  
+
+```
+
+
+```{r preparar_agregacio_assir, eval=FALSE}
+
+fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20210222_142117.rds"
+dt_assir<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
+
+# No llegeix arxiu
+# fitxer_txt<-"EPIDMGCAT_entregable_ecografies_obstetriques_t2_t3_20210812_210454.rds"
+# dt_ecografies<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
+
+
+```
+
+
+```{r, big_funcion}
+
+# dt_diagnostics<-dt_diagnostics %>% mutate(dat=as.character(dat))
+
+dt_plana<- 
+  dt_index %>% 
+  transmute(idp,id_episodi,dtindex) %>% 
+  # transmute(idp,dtindex=as.numeric(dtindex)) %>% 
+  Generar_taula_plana(cataleg = dt_cataleg,
+                    parametres = conductor_codis,sheet="parametres")
+
+
+# dt_diagnostics
+# dt_prescrits
+# dt_facturats
+# dt_variables
+# dt_tabac
+
+
+```
+
+
+```{r fusio}
+
+dades<-
+  dt_index %>% 
+  left_join(dt_poblacio)%>% 
+  left_join(dt_socioeconomiques,by="idp") %>% 
+  left_join(select(dt_plana,-dtindex),by=c("idp","id_episodi"))
+
+
+
+```
+
+```{r descriptiva}
+
+
+descrTable(grup_RAM~.,data=dades, show.n = T)
+
+
+```
+
+
+
 ## 5. Salvar part1 
 ```{r SALVAR}
-saveRDS(dt_plana, file=here::here(params$dir_dades_desti,"dt_plana1.rds"))
+# saveRDS(dt_plana, file=here::here(params$dir_dades_desti,"dt_plana1.rds"))
 
 ```
