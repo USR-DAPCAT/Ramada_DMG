@@ -15,7 +15,7 @@ generacio_num_episodi_index<-function() {
     readRDS(here::here(directori_dades_origen,"EPIDMGCAT_entregable_variables_analitiques_20210222_142117.rds" )) %>% 
     filter(cod%in% c("SOG50_0","SOG50_60","SOG100_0","SOG100_60","SOG100_120","SOG100_180","SOG75_120")) %>% 
     filter(!is.na(val))  # Em carrego missings (NA) en aquestes variables sense valor 
-
+ 
   dt_temp<-
     dt_analitiques %>% 
     select(idp,dat) %>% arrange(idp,dat) %>% mutate(num=0) %>% 
@@ -34,6 +34,36 @@ generacio_num_episodi_index<-function() {
     mutate(numcum=numcum+1) %>% 
     transmute(idp,id_episodi=numcum,dat) 
   }
+
+generacio_num_episodi_index2<-function() {
+  
+  library(lubridate)
+  # directori_dades_origen<-"../DADES/epiDMGCAT/SIDIAP"
+  # Open analitiques 
+  dt_analitiques<-
+    readRDS(here::here(directori_dades_origen,"EPIDMGCAT_entregable_variables_analitiques_20211124_123210.rds" )) %>% 
+    filter(cod%in% c("SOG50_0","SOG50_60","SOG100_0","SOG100_60","SOG100_120","SOG100_180","SOG75_120")) %>% 
+    filter(!is.na(val))  # Em carrego missings (NA) en aquestes variables sense valor 
+  
+  dt_temp<-
+    dt_analitiques %>% 
+    select(idp,dat) %>% arrange(idp,dat) %>% mutate(num=0) %>% 
+    group_by(idp) %>% 
+    mutate(dies=lubridate::ymd(dat)-lag(lubridate::ymd(dat))) %>% 
+    mutate(dies=as.numeric(dies)) %>% 
+    filter(dies>0 | is.na(dies)) %>% # Elimino dates repetides dins d'un individu
+    mutate (num=if_else(dies>180,lag(num)+1,lag(num))) %>% ungroup() 
+  
+  dt_index_long<-
+    dt_temp %>% 
+    mutate(num=if_else(is.na(num),0,num)) %>% 
+    group_by(idp) %>% 
+    mutate(numcum=cumsum(num)) %>% 
+    ungroup() %>% 
+    mutate(numcum=numcum+1) %>% 
+    transmute(idp,id_episodi=numcum,dat) 
+}
+
 
 
 generacio_data_index<-function(dt_index_long) {
@@ -97,6 +127,45 @@ classificacio_DMG<-function(dt_index_long,dt_index) {
 
 
 
+classificacio_DMG2<-function(dt_index_long,dt_index) {
+  
+  # directori_dades_origen<-"../DADES/epiDMGCAT/SIDIAP"
+  
+  # Open analitiques 
+  dt_temp<-
+    readRDS(here::here(directori_dades_origen,"EPIDMGCAT_entregable_variables_analitiques_20211124_123210.rds" )) %>% 
+    filter(cod%in% c("SOG50_0","SOG50_60","SOG100_0","SOG100_60","SOG100_120","SOG100_180","SOG75_120")) %>% 
+    select(idp,cod,dat,val) %>% 
+    filter(!is.na(val))  # Em carrego missings sense valor
+  
+  dt_temp2<-
+    dt_index_long %>% left_join (dt_temp,by=c("idp","dat")) %>% 
+    select(idp,id_episodi,dat,cod,val) %>% 
+    mutate(alterat1= if_else (cod=="SOG100_0" & val>95,1,0,missing = 0),
+           alterat2= if_else (cod=="SOG100_60" & val>180,1,0,missing = 0),
+           alterat3= if_else (cod=="SOG100_120" & val>155,1,0,missing = 0),
+           alterat4= if_else (cod=="SOG100_180" & val>140,1,0,missing = 0)) %>% 
+    group_by(idp,id_episodi,dat) %>% 
+    mutate(Nalterats=sum(alterat1+alterat2+alterat3+alterat4)) %>% 
+    ungroup() %>% 
+    group_by(idp,id_episodi) %>% 
+    mutate(grup=if_else(Nalterats>=2,1,0)) %>% 
+    ungroup()
+  
+  # Agrego per episodi grup 
+  dt_index<- dt_index %>% 
+    left_join(dt_temp2,by=c("idp","id_episodi")) %>% 
+    select(idp,id_episodi,dtindex,grup) %>% 
+    group_by(idp,id_episodi,dtindex) %>% 
+    summarise(grup=max(grup)) %>% 
+    ungroup()
+  
+  
+}
+
+
+
+
 netejar_val_txt<-function(dades) {
   dades %>% mutate (
     
@@ -152,6 +221,31 @@ generacio_historic_tabac<-function(cataleg=dt_cataleg) {
   
   
 }
+
+generacio_historic_tabac2<-function(cataleg=dt_cataleg) {
+  
+  dt<-readRDS(here::here(directori_dades_origen,"EPIDMGCAT_entregable_variables_assir_20211124_123210.rds" )) 
+  
+  dt_cataleg_tabac<-cataleg %>% filter(AGR2=="tabac") %>% select(cod,agr,AGR2)
+  
+  # PARM007	PARM007==1 --> Tabac= 1 (si)
+  dt_tabac<-dt %>% 
+    select(-c(agr,cod_embaras)) %>% 
+    semi_join(dt_cataleg_tabac,by="cod") %>% 
+    mutate(valor=ifelse(val>0,1,0)) %>% 
+    mutate(val_txt=stringr::str_trim(val_txt)) %>%  # Trec espais en blanc
+    mutate(valor_txt2=
+             case_when (val_txt %in% c("NO","no","No","nO","N",""," ")~"No",
+                        val_txt == "" ~ "No",
+                        is.na(val_txt) ~ "No",
+                        TRUE  ~ "Si" )) %>% 
+    mutate(valor=if_else(valor_txt2=="Si" | valor==1,1,0,missing = 0)) %>% 
+    transmute(idp,cod="tabac",agr="tabac",dat,val=valor)
+  
+  
+  
+}
+
 
 
 agregacio_diagnostics<-function(dt_index=dt_index,dt_cataleg=dt_cataleg) {

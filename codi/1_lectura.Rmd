@@ -18,8 +18,8 @@ output:
 
 params:
   fitxers_test: TRUE #FALSE #FALSE
-  directori_origen: "../DADES/epiDMGCAT/mostra"  # "../DADES/epiDMGCAT/SIDIAP" "../DADES/epiDMGCAT/mostra"
-  
+  directori_origen: "../DADES/epiDMGCAT/SIDIAP_NOV21/mostra"  # "../DADES/epiDMGCAT/SIDIAP""../DADES/epiDMGCAT/SIDIAP"
+ 
 ---
 
 
@@ -87,12 +87,16 @@ directori_dades_origen<-params$directori_origen
 # Generació de data index
 
 # 1. Episodis
-dt_episodis_long<-generacio_num_episodi_index()
+#dt_episodis_long<-generacio_num_episodi_index()
+
+# el nou: 19.10.2022
+dt_episodis_long<-generacio_num_episodi_index2()
 
 # 2. Data index 
 dt_index<-generacio_data_index(dt_episodis_long)
 
-
+#EPIDMGCAT_entregable_cmbdh_diagnostics_20211124_123210--> nov21
+#EPIDMGCAT_entregable_cmbdh_diagnostics_20210222_142117
 
 ```
 
@@ -105,7 +109,7 @@ dt_index<-generacio_data_index(dt_episodis_long)
 
 generar_mostra_fitxers(here::here("../DADES/epiDMGCAT/SIDIAP_NOV21"),
                        fitxer_poblacio = "EPIDMGCAT_entregable_poblacio_20211124_123210.rds",
-                       prefix = "",mida_mostra = 5000)
+                       prefix = "",mida_mostra = 10000)
 
 
 list.files(here::here("../DADES/epiDMGCAT/SIDIAP_NOV21"))
@@ -116,12 +120,15 @@ list.files(here::here("../DADES/epiDMGCAT/SIDIAP_NOV21"))
 ```{r lectura_poblacio}
 
 fitxer_txt<-"EPIDMGCAT_entregable_poblacio_20210222_142117.rds"
+fitxer_txt<-"EPIDMGCAT_entregable_poblacio_20211124_123210.rds"
 dt_poblacio<-readRDS(here::here(directori_dades_origen,fitxer_txt))
 
 fitxer_txt<-"EPIDMGCAT_entregable_variables_geosanitaries_20210222_142117.rds"
+fitxer_txt<-"EPIDMGCAT_entregable_variables_geosanitaries_20211124_123210.rds"
 dt_geosanitaries<-readRDS(here::here(directori_dades_origen,fitxer_txt))
 
 fitxer_txt<-"EPIDMGCAT_entregable_variables_socioeconomiques_20210222_142117.rds"
+fitxer_txt<-"EPIDMGCAT_entregable_variables_socioeconomiques_20211124_123210.rds"
 dt_socioeconomiques<-readRDS(here::here(directori_dades_origen,fitxer_txt))
 
 list.files(here::here(directori_dades_origen))
@@ -132,6 +139,7 @@ list.files(here::here(directori_dades_origen))
 ```{r classifica_origen}
 
 fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20210222_142117.rds"  
+fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20211124_123210.rds"  
 dt_origen<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% 
   filter(cod%in%c("PACR003","PACR004"))
 
@@ -144,6 +152,7 @@ dt_origen<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>%
 
 # Obrir dades idps amb origen
 fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20210222_142117.rds"  
+fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20211124_123210.rds"  
 
 dt_origen<-
   readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% 
@@ -240,9 +249,9 @@ dt_index<-dt_temp %>%
 ```{r DMGnoDMG}
 
 # 3. Generació de variable grup (DMG/noDMG) en funció de SOG
-dt_index_grupDMG<-classificacio_DMG(dt_episodis_long,dt_index)
+#dt_index_grupDMG<-classificacio_DMG(dt_episodis_long,dt_index)
 
-
+dt_index_grupDMG<-classificacio_DMG2(dt_episodis_long,dt_index)
 
 
 
@@ -252,9 +261,11 @@ dt_index_grupDMG<-classificacio_DMG(dt_episodis_long,dt_index)
 # list.files(here::here(directori_dades_origen))
 
 fitxer_txt<-"EPIDMGCAT_entregable_diagnostics_20210222_142117.rds"
+fitxer_txt<-"EPIDMGCAT_entregable_diagnostics_20211124_123210.rds"
 dt_diag_ecap<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
 fitxer_txt<-"EPIDMGCAT_entregable_cmbdh_diagnostics_20210222_142117.rds"
+fitxer_txt<-"EPIDMGCAT_entregable_cmbdh_diagnostics_20211124_123210.rds"
 dt_diag_hosp<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
 dt_diagnostics<-dt_diag_ecap %>% bind_rows(dt_diag_hosp)
@@ -264,10 +275,12 @@ dt_diagnostics<-dt_diag_ecap %>% bind_rows(dt_diag_hosp)
 
 ```{r preparar_agregacio_farmacs}
 fitxer_txt<-"EPIDMGCAT_entregable_farmacs_prescrits_20210222_142117.rds" 
+fitxer_txt<-"EPIDMGCAT_entregable_farmacs_prescrits_20211124_123210.rds" 
 dt_prescrits<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
 
 fitxer_txt<-"EPIDMGCAT_entregable_farmacs_facturats_20210222_142117.rds" 
+fitxer_txt<-"EPIDMGCAT_entregable_farmacs_facturats_20211124_123210.rds"
 dt_facturats<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
 ```
@@ -275,17 +288,19 @@ dt_facturats<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_jo
 
 ```{r preparar_agregacio_analitiques}
 fitxer_txt<-"EPIDMGCAT_entregable_variables_analitiques_20210222_142117.rds" 
+fitxer_txt<-"EPIDMGCAT_entregable_variables_analitiques_20211124_123210.rds" 
 dt_analitiques<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
 fitxer_txt<-"EPIDMGCAT_entregable_variables_cliniques_20210222_142117.rds"
+fitxer_txt<-"EPIDMGCAT_entregable_variables_cliniques_20211124_123210.rds"
 dt_cliniques<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
 dt_variables<-dt_analitiques %>% bind_rows(dt_cliniques)
 
 
 # 4. Generacio tabac i fusio sobre analitiques  ! Pendent de també agregar segons fitxer historic normal
-dt_tabac<-generacio_historic_tabac(dt_cataleg)
-  
+#dt_tabac<-generacio_historic_tabac(dt_cataleg)
+dt_tabac<-generacio_historic_tabac2(dt_cataleg)  
 
 ```
 
@@ -293,6 +308,7 @@ dt_tabac<-generacio_historic_tabac(dt_cataleg)
 ```{r preparar_agregacio_assir, eval=FALSE}
 
 fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20210222_142117.rds"
+fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20211124_123210.rds"
 dt_assir<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
 # No llegeix arxiu
