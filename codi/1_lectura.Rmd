@@ -18,7 +18,11 @@ output:
 
 params:
   fitxers_test: TRUE #FALSE #FALSE
+<<<<<<< HEAD
   directori_origen: "../DADES/epiDMGCAT/SIDIAP_NOV21"  # "../DADES/epiDMGCAT/SIDIAP_NOV21" "../DADES/epiDMGCAT/SIDIAP_NOV21/mostra"
+=======
+  directori_origen: "../../DADES/epiDMGCAT/dades/mostra"  # "../DADES/epiDMGCAT/SIDIAP""../DADES/epiDMGCAT/SIDIAP" "../DADES/epiDMGCAT/SIDIAP_NOV21/mostra"
+>>>>>>> d3baf5b3651931a5788b21f7c893d1a57117fcff
  
 ---
 
