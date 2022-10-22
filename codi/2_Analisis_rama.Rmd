@@ -1,5 +1,5 @@
 ---
-title: "Projecte CANFANGA. Estudi d'associació de la velocitat amb el tocino"
+title: 'Diagnóstico de diabetes gestacional en Catalunya y práctica del Ramadán'
 subtitle: "Informe estadístic"
 author: "Jordi Real & Rai Puig"
 website: "https://github.com/USR-DAPCAT/"
@@ -15,7 +15,7 @@ output:
     css: logos_css/usr_styles.css
     
 params:
-  mostra: yes
+  fitxers_test: FALSE #FALSE #FALSE
 
 bibliography: "references.bib"
 
@@ -64,7 +64,6 @@ knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, include=T,size
 library("dplyr")
 library("lubridate")
 library("compareGroups")
-library("gtsummary")
 # library("sjPlot")
 # library("tableone")
 library("magrittr")
@@ -77,29 +76,13 @@ link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funci
 devtools::source_url(link_source)
 
 
+if (params$fitxers_test) directori_dades<-"dades/mostra" else directori_dades<-"dades"
 
-```
-
-
-```{r estructura_carpetes, eval=FALSE}
-
-# estructura de carpetes: /dades /codi /outputs /docs
-
-# Genero el directori si no existeic
-directori<-paste0("dades")
-if (!file.exists(directori)) {dir.create(file.path(directori), showWarnings = FALSE)}
-  
-directori<-paste0("codi")
-if (!file.exists(directori)) {dir.create(file.path(directori), showWarnings = FALSE)}
-
-directori<-paste0("outputs")
-if (!file.exists(directori)) {dir.create(file.path(directori), showWarnings = FALSE)}
-
-directori<-paste0("docs")
-if (!file.exists(directori)) {dir.create(file.path(directori), showWarnings = FALSE)}
+conductor<-here::here("conductor_RAM.xls")
 
 
 ```
+
 
 
 ```{r llegirdades, include = FALSE}
@@ -118,7 +101,8 @@ if (!file.exists(directori)) {dir.create(file.path(directori), showWarnings = FA
 # dades<-read_conductor(path_dades)
 
 
-dades<-iris
+dades<-readRDS(here::here(directori_dades,"dt_plana.Rds"))
+
 
 #
 
@@ -184,6 +168,52 @@ knitr::write_bib(c("lme4","base", "ggplot2","stats", "effectsize"),file="referen
 ```
 
 
+```{r primers_recodes}
+
+dt<-dades
+
+  dt<-dt %>% mutate_at(vars(starts_with("FP.") | starts_with("FD.") ),~if_else(!is.na(.),"Yes","No",missing = "No"))
+
+  dt<-dt %>% mutate_at(vars(starts_with("DG.")),~if_else(!is.na(.),"Yes","No",missing = "No"))
+
+  # Calcuila la edat 
+  calcula_edat<-function(dnaix,data) { 
+    edat=(lubridate::ymd(data)-lubridate::ymd(dnaix))
+    edat=as.numeric(edat/365.25) }
+  
+  dt<-dt %>%  mutate(edat=calcula_edat(dnaix,dtindex) %>% round(2))
+  
+  dt<-dt %>% mutate(any_inclusio=lubridate::year(lubridate::ymd(dtindex)))
+  
+  # Eliminar espais en blanc de pais
+  dt<-dt %>% mutate(agr_pais=stringr::str_trim(agr_pais))
+  
+  # Recode 0/1  --> Yes/No
+  vars<-c("tabac.valor","grup_DG","grup_SOG", "MUSULMANA","grup_RAM")
+  dt<-dt %>% mutate_at(vars,~if_else(.==1,"Yes","No",missing = "No"))
+  
+  # factoritzar
+  vars<-c("ambit")
+  dt<-dt %>% mutate_at(vars,as.factor) 
+  
+  # Recode to missings
+  dt<-dt %>% recode_to_missings(taulavariables=conductor,rang="rang_valid")
+  
+  # Recodes : Grups d'edat 
+  dt<-recodificar2(dt,taulavariables = conductor,criteris = "recodes",prefix = "grups")
+  
+
+
+```
+
+
+
+```{r}
+
+dades<-dt
+rm(dt)
+
+```
 
 
 ```{r recodes_varis}
@@ -192,7 +222,41 @@ knitr::write_bib(c("lme4","base", "ggplot2","stats", "effectsize"),file="referen
 ```
 
 
-```{r filtres1}
+# Criteris d'inclusió
+
+- Dins de període reclutament: 2010-2019
+- Sense diagnostic registrat de diabetes 
+- No DM segons analitica: (GLICADA>=6.5 o GLUCOSA>=126)
+- Edat >18 <=50 anys 
+- Gestants sense tractament Antidiabetic (Excepte metformina)
+
+```{r filtres, TRUE}
+
+
+# Falta definir agrupadors d'antidiabetics
+
+# Filtres : edat, peridode d'inclusió 2010-2019, no DM
+
+
+# DM GLICADA.valor>=6.5 | GLUCOSA.valor>=126 (previ a data d'inclusió)
+dades<-
+  dades %>% 
+  mutate (exclusio_glicada=
+            if_else(GLICADA.valor.previ>=6.5 | GLUCOSA.valor.previ>=126,1,
+                    0,missing = 0))
+
+# Sense tractament AD
+vars_FX_AD<-extreure.variables("farmac_AD",taulavariables=conductor)
+
+
+dades<-dades %>% comptar_valors(vars_FX_AD,"Yes") %>% rename(num_FXAD=num_valors)
+
+
+dades<-
+  dades %>% filter(edat>18 & edat<=50 & DG.DM=="No" &  
+                  any_inclusio%in% c(2010:2019),
+                   exclusio_glicada==0,
+                   num_FXAD==0) 
 
 
 ```
@@ -200,19 +264,69 @@ knitr::write_bib(c("lme4","base", "ggplot2","stats", "effectsize"),file="referen
 
 
 
-```{r flowchart, include=TRUE,eval=TRUE}
+
+```{r filtres_principals}
 
 
-dades %>% 
-  ggflowchart::Flow_chart_Consort(
-    exclusions = c("Species=='setosa'","Petal.Length>6"),
-    lab_exclusions = c("Specie setona", "Llargada Petal >5"))
+dades %>% ggflowchart::Flow_chart_Consort('MUSULMANA=="No"')
 
+dades<-dades %>% filter(MUSULMANA=="Yes")
 
+```
+
+```{r mes_calculs}
+
+# Nombre d'episodis i embarasos 
+dades<-
+  dades %>% 
+  group_by(idp) %>% 
+    mutate(num=c(1:n())) %>% 
+    mutate(n_episodis=max(num)) %>% 
+    mutate(n_embarasos=max(id_episodi)) %>% 
+  ungroup() %>% select(-num)
 
 
 
 ```
+
+# Descriptiva exploratoria
+
+```{r}
+
+
+descrTable(grup_RAM~grup+ edat + IMC.valor.previ +
+             SOG100_0.valor + SOG100_120.valor + SOG100_180.valor + sog100_60.valor + SOG50_0.valor + SOG50_60.valor+ SOG75_0.valor + SOG75_120.valor,data=dades, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
+
+
+# dades %>% select(MUSULMANA, agr_pais,grup_RAM,periode1_RAM,periode2_RAM)
+
+
+
+```
+
+# Descriptiva comparativa
+
+```{r}
+
+dt_temp<-dades %>% 
+  filter(n_episodis>=2) 
+
+dt_temp %>% select(idp,id_episodi,grup_RAM)
+  
+
+stats::glm(grup~grup_RAM, family = "binomial",data=dt_temp)
+
+?glm
+
+descrTable(grup_RAM~grup+ edat + IMC.valor.previ +
+             SOG100_0.valor + SOG100_120.valor + SOG100_180.valor + sog100_60.valor + SOG50_0.valor + SOG50_60.valor+ SOG75_0.valor + SOG75_120.valor,
+           data=dt_temp, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
+
+
+
+```
+
+
 
 
 ```{r filtres2}
@@ -225,32 +339,7 @@ dades %>%
 
 
 
-```{r recodes, eval=FALSE}
 
-
-#Recodificar automaticament a partir del Conductor!
-#dades<-recodificar(dades,taulavariables =conductor,"recode",missings = T)
-
-#Etquetem (Si/No)  a partir del Conductor!
-dades<- dades %>% mutate_at(vars(starts_with("DG.")), ~if_else(.==1,"Yes","No",missing = "No")) 
-dades<- dades %>% mutate_at(vars(starts_with("EVENT.")), ~if_else(.==1,"Yes","No",missing = "No")) 
-dades<- dades %>% mutate_at(vars(starts_with("FF.")), ~if_else(.==1,"Yes","No",missing = "No")) 
-dades<- dades %>% mutate_at(vars(starts_with("FP.")), ~if_else(.==1,"Yes","No",missing = "No")) 
-
-
-#Etquetem  VALORS! de les VAR  a partir del Conductor!
-#dades<-etiquetar_valors(dt=dades,variables_factors=conductor,fulla="etiquetes",camp_etiqueta="etiqueta1")
-
-
-#Apliquem que surtin els MISSINGS a les TAULES , a partir del CONDUCTOR!
-#dades<-dades%>%mutate_at(extreure.variables("missings",conductor,dt=dades),as.factor)
-
-
-#Cat referencia
-#dades<-dades %>% refcat(conductor = conductor,ref="refcat")
-
-
-```
 
 
 

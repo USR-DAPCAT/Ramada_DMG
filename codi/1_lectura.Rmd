@@ -18,7 +18,7 @@ output:
 
 params:
   fitxers_test: TRUE #FALSE #FALSE
-  directori_origen: "../DADES/epiDMGCAT/SIDIAP_NOV21/mostra"  # "../DADES/epiDMGCAT/SIDIAP""../DADES/epiDMGCAT/SIDIAP"
+  directori_origen: "../DADES/epiDMGCAT/SIDIAP_NOV21"  # "../DADES/epiDMGCAT/SIDIAP_NOV21" "../DADES/epiDMGCAT/SIDIAP_NOV21/mostra"
  
 ---
 
@@ -67,12 +67,13 @@ dt_cataleg<-readxl::read_excel(conductor_codis,col_types = "text")
 dt_origens<-readxl::read_excel(conductor_codis,col_types = "text",sheet = "origen_etnia")
 
 
-directori_dades_origen<-params$dir_dades_origen
+directori_dades_origen<-params$directori_origen
+
+
 #
 #
 
 ```
-
 
 
 ## 1. Generació DataIndex 
@@ -90,7 +91,7 @@ directori_dades_origen<-params$directori_origen
 #dt_episodis_long<-generacio_num_episodi_index()
 
 # el nou: 19.10.2022
-dt_episodis_long<-generacio_num_episodi_index2()
+dt_episodis_long<-generacio_num_episodi_index()
 
 # 2. Data index 
 dt_index<-generacio_data_index(dt_episodis_long)
@@ -119,39 +120,28 @@ list.files(here::here("../DADES/epiDMGCAT/SIDIAP_NOV21"))
 
 ```{r lectura_poblacio}
 
-fitxer_txt<-"EPIDMGCAT_entregable_poblacio_20210222_142117.rds"
 fitxer_txt<-"EPIDMGCAT_entregable_poblacio_20211124_123210.rds"
 dt_poblacio<-readRDS(here::here(directori_dades_origen,fitxer_txt))
 
-fitxer_txt<-"EPIDMGCAT_entregable_variables_geosanitaries_20210222_142117.rds"
 fitxer_txt<-"EPIDMGCAT_entregable_variables_geosanitaries_20211124_123210.rds"
 dt_geosanitaries<-readRDS(here::here(directori_dades_origen,fitxer_txt))
+# Agafo un unic pacient
+dt_ambit<-dt_geosanitaries %>% select(idp,ambit) %>% group_by(idp,ambit) %>% slice(1L) %>% ungroup()
+rm(dt_geosanitaries)
 
-fitxer_txt<-"EPIDMGCAT_entregable_variables_socioeconomiques_20210222_142117.rds"
 fitxer_txt<-"EPIDMGCAT_entregable_variables_socioeconomiques_20211124_123210.rds"
 dt_socioeconomiques<-readRDS(here::here(directori_dades_origen,fitxer_txt))
 
-list.files(here::here(directori_dades_origen))
+
+gc()
 
 ```
 
 
-```{r classifica_origen}
-
-fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20210222_142117.rds"  
-fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20211124_123210.rds"  
-dt_origen<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% 
-  filter(cod%in%c("PACR003","PACR004"))
 
 
-
-```
-
-
-```{r origen_musulma}
-
+```{r origen_musulma, message=TRUE}
 # Obrir dades idps amb origen
-fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20210222_142117.rds"  
 fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20211124_123210.rds"  
 
 dt_origen<-
@@ -166,22 +156,68 @@ dt_origen<-
 #   group_by(idp) %>% slice(1) %>% ungroup()
 # dt_temp<-dt_poblacio %>% transmute(idp,cod="agr_pais",val_txt=agr_pais) %>% filter(val_txt!="") 
 
-
 # Obrir cataleg origen
 dt_cataleg_origen<-
   read_conductor(here::here("cataleg_epiDMG.xls"),sheet="origen_etnia") %>% 
   select(cod,val_txt,MUSULMANA) %>% netejar_val_txt() %>% 
   mutate(MUSULMANA=if_else(is.na(MUSULMANA),0,1))
 
-
 dt_origen_musul<-
-  dt_origen %>% left_join(dt_cataleg_origen,by="val_txt") %>% filter(MUSULMANA==1) %>% 
+  dt_origen %>% left_join(dt_cataleg_origen,by = c("cod", "val_txt")) %>% #filter(MUSULMANA==1) %>%
   group_by(idp) %>% 
-  summarise(MUSULMANA=1, origen=first(val_txt)) %>% 
-  ungroup()
+   slice(which.max(MUSULMANA)) %>% 
+    # summarise(MUSULMANA=max(MUSULMANA), origen=first(val_txt)) %>% 
+  ungroup() %>% select(idp,MUSULMANA)
+ 
+
+# # verificació origen musulma
+# dt_origen %>% left_join(dt_origen_musul) %>% filter(MUSULMANA==0) %>% distinct(val_txt)
+# 
+# dt_origen %>% left_join(dt_origen_musul) %>% filter(MUSULMANA==1) %>% distinct(val_txt)
+
+
+```
+
+```{r periode_exposicio_ramada}
+
+# Generar dt
+
+dt_ramada_periode<-
+  read_conductor(here::here(conductor_codis),sheet="periode_ramada") %>% 
+  transmute(year=as.character(year),periode1_RAM=as.Date(periode1),periode2_RAM=as.Date(periode2))
+
+# Definició de marge de seguretat a la finestra en dies
+epsilon<-30
+
+dt_temp<-
+  dt_index %>% 
   
+  left_join(dt_origen_musul, by="idp") %>%   # fILTRO NOMÉS MUSULMANES
+  filter(MUSULMANA==1) %>% 
+  
+  mutate(year=substr(as.character(dtindex),1,4)) %>% 
+  left_join(dt_ramada_periode, by="year") %>% 
+  mutate(grup_RAM=case_when(
+    
+    (ymd(dtindex) >= periode1_RAM- epsilon ) & (ymd(dtindex) <= periode2_RAM + epsilon)~ 1,
+    TRUE ~ 0
+    )
+    ) %>% 
+  select(idp,id_episodi,dtindex,periode1_RAM,periode2_RAM,grup_RAM) %>% 
+  # Filtro episodis posteriors o igual a 2010
+  filter(dtindex>=20100101)
+
+dt_ramada<-
+  dt_index %>% left_join (dt_origen_musul) %>% left_join(dt_temp) %>% 
+  filter(dtindex>=20100101)
 
 
+```
+
+
+```{r etnia_individu}
+
+# Pendent
 
 # # Genero: Etnia x individu (Em carrego aquells que tenen mes d'una )
 # dt_etnia<-
@@ -210,40 +246,7 @@ dt_origen_musul<-
 
 ```
 
-```{r periode_exposicio_ramada}
 
-# Generar dt
-
-dt_ramada<-
-  read_conductor(here::here(conductor_codis),sheet="periode_ramada") %>% 
-  transmute(year=as.character(year),periode1_RAM=as.Date(periode1),periode2_RAM=as.Date(periode2))
-
-
-# Definició de marge de seguretat a la finestra en dies
-epsilon<-30
-
-dt_temp<-
-  dt_index %>% 
-  
-  left_join(dt_origen_musul, by="idp") %>%   # fILTRO NOMÉS MUSULMANES
-  filter(MUSULMANA==1) %>% 
-  
-  mutate(year=substr(as.character(dtindex),1,4)) %>% 
-  left_join(dt_ramada, by="year") %>% 
-  mutate(grup_RAM=case_when(
-    
-    (ymd(dtindex) >= periode1_RAM- epsilon ) & (ymd(dtindex) <= periode2_RAM + epsilon)~ 1,
-    TRUE ~ 0
-    )
-    ) %>% 
-  select(idp,id_episodi,dtindex,periode1_RAM,periode2_RAM,grup_RAM,origen) 
-
-  
-# Filtro episodis posteriors o igual a 2010
-dt_index<-dt_temp %>% 
-  filter(dtindex>=20100101)
-
-```
 
 
 ```{r DMGnoDMG}
@@ -251,7 +254,7 @@ dt_index<-dt_temp %>%
 # 3. Generació de variable grup (DMG/noDMG) en funció de SOG
 #dt_index_grupDMG<-classificacio_DMG(dt_episodis_long,dt_index)
 
-dt_index_grupDMG<-classificacio_DMG2(dt_episodis_long,dt_index)
+dt_index_grupDMG<-classificacio_DMG(dt_episodis_long,dt_index)
 
 
 
@@ -260,11 +263,9 @@ dt_index_grupDMG<-classificacio_DMG2(dt_episodis_long,dt_index)
 ```{r preparar_agregacio_dx}
 # list.files(here::here(directori_dades_origen))
 
-fitxer_txt<-"EPIDMGCAT_entregable_diagnostics_20210222_142117.rds"
 fitxer_txt<-"EPIDMGCAT_entregable_diagnostics_20211124_123210.rds"
 dt_diag_ecap<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
-fitxer_txt<-"EPIDMGCAT_entregable_cmbdh_diagnostics_20210222_142117.rds"
 fitxer_txt<-"EPIDMGCAT_entregable_cmbdh_diagnostics_20211124_123210.rds"
 dt_diag_hosp<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
@@ -274,12 +275,10 @@ dt_diagnostics<-dt_diag_ecap %>% bind_rows(dt_diag_hosp)
 
 
 ```{r preparar_agregacio_farmacs}
-fitxer_txt<-"EPIDMGCAT_entregable_farmacs_prescrits_20210222_142117.rds" 
+
 fitxer_txt<-"EPIDMGCAT_entregable_farmacs_prescrits_20211124_123210.rds" 
 dt_prescrits<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
-
-fitxer_txt<-"EPIDMGCAT_entregable_farmacs_facturats_20210222_142117.rds" 
 fitxer_txt<-"EPIDMGCAT_entregable_farmacs_facturats_20211124_123210.rds"
 dt_facturats<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
@@ -287,11 +286,10 @@ dt_facturats<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_jo
 
 
 ```{r preparar_agregacio_analitiques}
-fitxer_txt<-"EPIDMGCAT_entregable_variables_analitiques_20210222_142117.rds" 
+
 fitxer_txt<-"EPIDMGCAT_entregable_variables_analitiques_20211124_123210.rds" 
 dt_analitiques<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
-fitxer_txt<-"EPIDMGCAT_entregable_variables_cliniques_20210222_142117.rds"
 fitxer_txt<-"EPIDMGCAT_entregable_variables_cliniques_20211124_123210.rds"
 dt_cliniques<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
@@ -300,14 +298,14 @@ dt_variables<-dt_analitiques %>% bind_rows(dt_cliniques)
 
 # 4. Generacio tabac i fusio sobre analitiques  ! Pendent de també agregar segons fitxer historic normal
 #dt_tabac<-generacio_historic_tabac(dt_cataleg)
-dt_tabac<-generacio_historic_tabac2(dt_cataleg)  
+dt_tabac<-generacio_historic_tabac(dt_cataleg)  
 
 ```
 
 
 ```{r preparar_agregacio_assir, eval=FALSE}
 
-fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20210222_142117.rds"
+
 fitxer_txt<-"EPIDMGCAT_entregable_variables_assir_20211124_123210.rds"
 dt_assir<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(dt_index,by="idp")
 
@@ -345,7 +343,10 @@ dt_plana<-
 
 dades<-
   dt_index %>% 
+  left_join(dt_index_grupDMG,by=c("idp","dtindex","id_episodi")) %>% 
+  left_join(dt_ramada)%>% 
   left_join(dt_poblacio)%>% 
+  left_join(dt_ambit)%>% 
   left_join(dt_socioeconomiques,by="idp") %>% 
   left_join(select(dt_plana,-dtindex),by=c("idp","id_episodi"))
 
@@ -353,21 +354,187 @@ dades<-
 
 ```
 
-```{r descriptiva}
 
 
-descrTable(grup_RAM~.,data=dades, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
+```{r actualitzar_grupDMG}
+
+# Actualitzar grup DMG en funció del diagnostic de DMG
+
+library(lubridate)
+
+# dades %>% select(grup,DG.DMG)
+
+# defineixo finestra (). El temps en mediana es dies 32 [-315,86]
+finestra_DMG<-c(-90,180)
+dt_temp<-
+  dades %>% mutate(grup_SOG=grup) %>% 
+            mutate(DG.DMG_recent=case_when(
+                    dplyr::between(lubridate::ymd(DG.DMG)-lubridate::ymd(dtindex), finestra_DMG[1],finestra_DMG[2])~DG.DMG,
+                    TRUE~NA_integer_)) %>% 
+            mutate (grup_DG=if_else(DG.DMG_recent>0,1,0,missing = 0)) %>% 
+            mutate (grup=if_else(grup_SOG==1 | grup_DG==1,1,0)) 
+
+
+# dades %>% transmute(idp,grup,grup_SOG,grup_DG,DG.DMG_recent,dtindex,DG.DMG, dies=lubridate::ymd(DG.DMG)-lubridate::ymd(dtindex)) %>% 
+#   filter(grup==1 )
+
+
+# dt_temp %>% select(idp,id_episodi,grup,DG.DMG,grup_SOG, dtindex)
+
+dades<-dt_temp
+
+
+```
+
+```{r}
+
+# Mínims calculs 
+
+# Calcuila la edat 
+  calcula_edat<-function(dnaix,data) { 
+    edat=(lubridate::ymd(data)-lubridate::ymd(dnaix))
+    edat=as.numeric(edat/365.25) }
+
+dades<-dades %>%  mutate(edat=calcula_edat(dnaix,dtindex) %>% round(2))
+
+
+# filtre mínim 
+
+dades<-dades %>% 
+  filter(edat>=18 & edat<50) %>% 
+  filter(is.na(DG.DM)) %>% 
+  mutate(tempo1=if_else(GLICADA.valor.previ>=6.5,1,0,missing = 0),
+         tempo2=if_else(GLUCOSA.valor.previ>=126,1,0,missing=0)) %>% 
+  filter(tempo1==0 & tempo2==0)
+ 
+
+```
+
+```{r descriptiva_global}
+
+
+dades$grup<-factor(dades$grup)
+dades$grup_RAM<-factor(dades$grup_RAM)
+
+descrTable(~.,data=dades, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
+
+descrTable(MUSULMANA~grup+
+             SOG100_0.valor + SOG100_120.valor + SOG100_180.valor + sog100_60.valor + SOG50_0.valor + SOG50_60.valor+ SOG75_0.valor + SOG75_120.valor,data=dades, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
 
 
 ```
 
 
 
+```{r descriptiva_explo}
+
+descrTable(grup_RAM~.,data=dades, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
+
+
+
+
+descrTable(grup_RAM~grup+
+             SOG100_0.valor + SOG100_120.valor + SOG100_180.valor + sog100_60.valor + SOG50_0.valor + SOG50_60.valor+ SOG75_0.valor + SOG75_120.valor,data=dades, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
+
+
+
+
+ 
+ 
+
+```
+
+
+
+
+# Criteris d'inclusió
+
+- Dins de període reclutament: 2010-2019
+- Sense diagnostic registrat de diabetes 
+- No DM segons analitica: (GLICADA>=6.5 o GLUCOSA>=126)
+- Edat >18 <=50 anys 
+- Gestants sense tractament Antidiabetic (Excepte metformina)
+
+```{r filtres, eval=FALSE}
+
+# Falta definir agrupadors d'antidiabetics
+
+# Filtres : edat, peridode d'inclusió 2010-2019, no DM
+
+# DM GLICADA.valor>=6.5 | GLUCOSA.valor>=126 (previ a data d'inclusió)
+dades<-
+  dades %>% 
+  mutate (exclusio_glicada=
+            if_else(GLICADA.valor>=6.5 | GLUCOSA.valor>=126,1,
+      
+                    0,missing = 0))
+
+# Sense tractament AD
+vars_FX_AD<-extreure.variables("farmac_AD",conductor)
+dades<-dades %>% comptar_valors(vars_FX_AD,"Yes") %>% rename(num_FXAD=num_valors)
+
+
+
+dades<-
+  dades %>% filter(edat>18 & edat<=50 & DG.DM=="No" &  
+                     any_inclusio%in% c(2010:2019),
+                   exclusio_glicada==0,
+                   num_FXAD==0) 
+
+
+```
+
+
+
+```{r recodes}
+
+preparar_dades<-function(dt=dades) {
+
+  dt<-dt %>% mutate_at(vars(starts_with("FP.") | starts_with("FD.") ),~if_else(!is.na(.),"Yes","No",missing = "No"))
+
+  dt<-dt %>% mutate_at(vars(starts_with("DG.")),~if_else(!is.na(.),"Yes","No",missing = "No"))
+
+  # Calcuila la edat 
+  calcula_edat<-function(dnaix,data) { 
+    edat=(lubridate::ymd(data)-lubridate::ymd(dnaix))
+    edat=as.numeric(edat/365.25) }
+  
+  dt<-dt %>%  mutate(edat=calcula_edat(dnaix,dtindex) %>% round(2))
+  
+  dt<-dt %>% mutate(any_inclusio=lubridate::year(lubridate::ymd(dtindex)))
+  
+  # Eliminar espais en blanc de pais
+  dt<-dt %>% mutate(agr_pais=stringr::str_trim(agr_pais))
+  
+  # Recode 0/1  --> Yes/No
+  vars<-c("tabac.valor","grup_DG","grup_SOG")
+  dt<-dt %>% mutate_at(vars,~if_else(.==1,"Yes","No",missing = "No"))
+  
+  # factoritzar
+  vars<-c("ambit")
+  dt<-dt %>% mutate_at(vars,as.factor) 
+  
+  # Recode to missings
+  dt<-dt %>% recode_to_missings(taulavariables=conductor,rang="rang_valid")
+  
+  # Recodes : Grups d'edat 
+  recodificar2(dt,taulavariables = conductor,criteris = "recodes",prefix = "grups")
+  }
+
+
+
+```
+
+
+
+
 ## 5. Salvar dades 
 ```{r SALVAR, include=FALSE}
 
+
+
 # Directori destí o tot SIDIAP
-if (stringr::str_sub(params$directori_origen,-5)=="SIDIAP") directori_desti="dades" else directori_desti="dades/mostra"
+if (stringr::str_sub(directori_dades_origen,-5)=="NOV21") directori_desti="dades" else directori_desti="dades/mostra"
 
 saveRDS(dades, file=here::here(directori_desti,"dt_plana.Rds"))
 
