@@ -38,16 +38,19 @@ bibliography: "references.bib"
 
 # 0. Estat:
 
+**Fet **
 
-**Actualitzacións**
+&check; Construcción tabla plana y vinculación de archivos segun diseño <br/>
+&check; Construcción 240 variables <br/>
+&check; Aplicación de filtros según criterios de exclusión <br/>
+&check; Analisis exploratorio <br/> 
 
+**Pendent**
 
-&check; XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX <br/>
- 
-**Fet**
-
-&check; XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX <br/>
-
+&check; Revisar criteris inclusió  <br/>
+&check; Revisar agregació  <br/>
+&check; Validación  <br/>
+&check; Depuración  <br/>
 
 
 ```{r setup, include = FALSE}
@@ -103,6 +106,9 @@ conductor<-here::here("conductor_RAM.xls")
 
 dades<-readRDS(here::here(directori_dades,"dt_plana.Rds"))
 
+conductor_cataleg<-here::here("cataleg_epiDMG.xls")
+
+
 
 #
 
@@ -111,41 +117,96 @@ dades<-readRDS(here::here(directori_dades,"dt_plana.Rds"))
 
 # Objectius
 
-## Objectiu general
+## Objetivo principal
+- Estudiar una posible relación entre la práctica del Ramadán y los resultados de las pruebas del cribado de diabetes gestacional (TOS y/oSOG100g) en mujeres naturales de países que tienen el Islam como religión mayoritaria.
 
-Avaluar l'efectivitat  de diversos programes de sensibilització, alfabetització i estigma en salut mental portats a terme per infermers/es del "Programa Salut i Escola (SiE)" d’Atenció Primària i l’especialitzada en salut mental en l’augment de coneixements en salut mental i reducció de l'estigma en joves escolaritzats que cursen Estudis Secundaris Obligatoris (ESO)
+
+## Secundarios
+
+En las mujeres naturales de países que tienen el Islam como religión mayoritaria:
+
+- Estudiar una posible relación entre la práctica del Ramadán y el diagnóstico de diabetes gestacional, tanto por criterios Carpenter y Coustan como por criterios NDDG
+- Describir en la población estudiada las características de las mujeres y de sus embarazos
+- Describir y comparar una posible relación entre mujeres que practican la práctica del Ramadán y las que no (en general y en cada uno de los trimestres) de los resultados de la gestación y perinatales: Frecuencia de HTA gestacional o preeclampsia, percentil fetal estimado en tercer trimestre, duración de la gestación, tipo de parto, resultado del parto
 
 
-## Especifics 
+# Metodologia
 
-1 Avaluar l’efectivitat dels programes PS, PASM i PASM+RE per aconseguir una modificació en:
+## Diseño
+Se realizará un estudio observacional retrospectivo de corte transversal en el momento de la realización del cribado de DMG. Para ello se utilizará una base de datos del Sistema de Información para el Desarrollo de la Investigación en Atención Primaria (SIDIAP) del Instituto Catalán de la Salud (ICS).
 
-- Coneixements en salut mental als 6 i 12 mesos de seguiment. 
-- Estigma en salut mental  als 6 i 12 mesos de seguiment.
-- Cerca d'ajuda als 6 i 12 mesos de seguiment.
-- Ús de serveis sanitaris als 6 i 12 mesos de seguiment 
-- Símptomes mentals i en l'augment de la salut mental positiva als 6 i 12 mesos de seguiment.  
-- Qualitat de vida als 6 i 12 mesos de seguiment.  
-- Reducció de les conductes d'Assetjament Escolar i Internet als 6 i 12 mesos de seguiment.  
-- Intenció de canvi d'un problema de salut mental als 6 i 12 mesos de seguiment.
+
+**Criteris d'inclusió**
+
+- Gestants a qui se’ls ha realitzat el cribratge de Diabetis gestacional entre els anys 2010-2019 inclodes en la base de dades SIDIAP.
+- Majors a 18 anys (>18) i menors de 50 (<=50)
+- Gestants sense antecedents de DM1 o DM2
+- Gestants sense tractament Antidiabetic (Excepte metformina)
+- Identificades d'origen d'un país musulmà
+
+La unitat d'anàlisis seràn els episodis d'embaraç
+
+## Identificació d'episodis d'embaraç 
+
+S'indentifiquen els diferents episodis d'embaraç en funció de les probes de cribatge de DMG segons les seguents determinacions: 
+SOG50_0, SOG50_60, SOG100_0, SOG100_60 ,SOG100_120, SOG100_180, SOG75_120
+
+Es considera nou episodi d'embaraç si passen 6 o més mesos (180 dies) entre última proba de cribaje i la seguent. Interval entre cribatges major a 180 dies es considera nou embaraç. 
+
+- Data d'inclusió: 
+
+Es considera data d'inclusió la primera proba del cribatge gestacional dins de episodi d'embaraç 
+
+
+
+## **Classificació de DMG / no DMG**
+
+Dins de cada episodi es classifica en DMG / no DMG en funció de les determinacions del cribatge DMG i alteracions
+
+**A) Diabetis gestacional:** 
+   
+-Definició: SOG50_60min>140 i >2 valors alterats de la SOG100: SOG100_0min > 95; SOG100_60min > 180; SOG100_120min > 155; SOG100_180min > 140
+
+Nota: Es comenta que en les dones que tinguin SOG50_60min > 140 però que no disposem de SOG100 o aquesta estigui incompleta (per vòmits, intolerancia, etc) es farà una estimació del % de possibles DMG en funció del percentatge de dones amb cribratge positiu (SOG50_60min > 140) i test diagnòstic positiu (SOG100 > 2 valors)
+
+
+**B) No Diabetis gestacional:**
+
+- La resta amb determinacions: 
+- Definició:	(SOG50_60min < 140 o SOG50_60min > 140) amb menys de 2 valors de la SOG100 alterats 
+
+nota: Cal tenir present que una mateixa dona pot tenir en una mateixa gestació varies SOG100 amb 1 valor alterat però que no és diagnòstic de DMG.
+
+
+
+## Definición de grupos de estudio (RAM / control)
+
+Cada episodio se clasificará en dos grupos en función de si el periodo de embarazo y cribado de DMG coincide con el mismo periodo del ramadán:
+
+
+- 1. Grupo RAM: Si el episodio de embarazo y cribado de DMG con potencial practica del Ramadán durante su gestación coincide con el mismo periodo de Ramadán
+
+- 2. Grupo CONTROL: Episodio de embarazo y sus determinaciones del cribado DMG sin posible exposición a la práctica del Ramadán
+
+
+
+```{r}
+
+read_conductor(conductor_cataleg,sheet="periode_ramada") %>% transmute(Año=year,Periodo=paste0(periode1, "  al  ",periode2)) %>% 
+  kable(caption = "Periodo de Ramadá definido",align="c") %>% kableExtra::kable_classic_2()
+
+
+
+```
+
 
 
 ***
 
+## Análisis estadístico: 
 
-# Mètode 
-
-
-## Disseny: 
-
-Estudi observacional transversal
-
-
-## Analisis estadístic: 
-
-Se ha realizado un analisis estadístico descriptivo resumiendo los parámetros cuantitativos con la media y su desviación típica, y las variables cualitativas con la frequencia y su porcentaje. 
-Para evaluar la evolución de cada unos de los parámetros durante las visitas de seguimiento por grupos se realizaron  modelos de efectos mixtos, (Fit Linear Mixed-Effects Models) usando el paquete lme4 de R [@R-lme4; @lme42015] .
-Se consideró como estadísticamente significativo p valores inferiores a 0.05 sin usar la corrección por comparaciones multiples. El analisis estadístico se realizó con el paquete estadístico R[@R-base]
+Se ha realizará un analisis descriptivo resumiendo los parámetros cuantitativos con la media y su desviación típica, y las variables cualitativas con la frequencia y su porcentaje. Para evaluar l hipótesis principal se realizaran  modelos de efectos mixtos, (Fit Linear Mixed-Effects Models) usando el paquete lme4 de R [@R-lme4; @lme42015] .
+Se considerá como estadísticamente significativo p valores inferiores a 0.05 sin corrección por comparaciones multiples en las variables principales. El analisis estadístico y procesos de data manegement con el paquete estadístico R[@R-base]
 
 
 
@@ -168,11 +229,11 @@ knitr::write_bib(c("lme4","base", "ggplot2","stats", "effectsize"),file="referen
 ```
 
 
-```{r primers_recodes}
+```{r primers_recodes, include=FALSE}
 
 dt<-dades
 
-  dt<-dt %>% mutate_at(vars(starts_with("FP.") | starts_with("FD.") ),~if_else(!is.na(.),"Yes","No",missing = "No"))
+  dt<-dt %>% mutate_at(vars(starts_with("FP.") | starts_with("FF.") ),~if_else(!is.na(.),"Yes","No",missing = "No"))
 
   dt<-dt %>% mutate_at(vars(starts_with("DG.")),~if_else(!is.na(.),"Yes","No",missing = "No"))
 
@@ -230,9 +291,7 @@ rm(dt)
 - Edat >18 <=50 anys 
 - Gestants sense tractament Antidiabetic (Excepte metformina)
 
-```{r filtres, TRUE}
-
-
+```{r generofiltres, TRUE}
 # Falta definir agrupadors d'antidiabetics
 
 # Filtres : edat, peridode d'inclusió 2010-2019, no DM
@@ -252,11 +311,42 @@ vars_FX_AD<-extreure.variables("farmac_AD",taulavariables=conductor)
 dades<-dades %>% comptar_valors(vars_FX_AD,"Yes") %>% rename(num_FXAD=num_valors)
 
 
+```
+
+# Flowchart 1
+
+```{r}
+
+
+library(ggflowchart)
+
+dades %>% ggflowchart::Generar_flow_chart_consort(taulavariables=conductor,
+                                                  sheet="criteris_exclusio",
+                                                  criteris="exclusio",
+                                                  labels="etiqueta", 
+                                                  sequencial = F)
+
+```
+
+
+```{r aplicofiltres, TRUE}
+
 dades<-
-  dades %>% filter(edat>18 & edat<=50 & DG.DM=="No" &  
-                  any_inclusio%in% c(2010:2019),
-                   exclusio_glicada==0,
-                   num_FXAD==0) 
+  dades %>% filter(edat>18 & edat<=50 & 
+                     DG.DM=="No" &  
+                     any_inclusio%in% c(2010:2019),
+                     exclusio_glicada==0,
+                     num_FXAD==0) 
+
+
+```
+
+# Flow-chart 2
+
+```{r}
+
+dades %>% ggflowchart::Flow_chart_Consort("MUSULMANA=='No'", lab_exclusions = "Paisos No musulmans")
+
 
 
 ```
@@ -264,11 +354,8 @@ dades<-
 
 
 
-
 ```{r filtres_principals}
 
-
-dades %>% ggflowchart::Flow_chart_Consort('MUSULMANA=="No"')
 
 dades<-dades %>% filter(MUSULMANA=="Yes")
 
@@ -286,15 +373,53 @@ dades<-
   ungroup() %>% select(-num)
 
 
+dades<-dades %>% mutate(any_inclusio=as.character(any_inclusio))
+
 
 ```
 
-# Descriptiva exploratoria
+```{r}
+
+dades<-dades %>% etiquetar_valors(variables_factors = conductor,fulla = "etiquetes")
+
+```
+
 
 ```{r}
 
 
-descrTable(grup_RAM~grup+ edat + IMC.valor.previ +
+
+dades<-dades %>% etiquetar(taulavariables = conductor,camp_descripcio="descripcio")
+
+```
+
+
+# Descriptiva exploratoria
+
+
+```{r}
+
+
+# formula<-formula.text("Baseline",".",taulavariables = conductor)
+# formula
+# 
+# compareGroups::descrTable(formula,method = 2,Q1=0,Q3=1,extra.labels = c("","","")) %>% export2md()
+
+
+formula<-formula_table1("Baseline","",taulavariables = conductor)
+
+table1::table1(formula,dades)
+
+
+
+```
+
+
+
+```{r, eval=FALSE}
+
+
+descrTable(grup_RAM~grup + grup_SOG + edat + IMC.valor.previ +
              SOG100_0.valor + SOG100_120.valor + SOG100_180.valor + sog100_60.valor + SOG50_0.valor + SOG50_60.valor+ SOG75_0.valor + SOG75_120.valor,data=dades, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
 
 
@@ -304,23 +429,72 @@ descrTable(grup_RAM~grup+ edat + IMC.valor.previ +
 
 ```
 
-# Descriptiva comparativa
 
-```{r}
+
+```{r M_efectes_mixtes, eval=FALSE,include=FALSE}
+
+# Descriptiva comparativa tenint en compte idp 
+
+# - Models d'efectes mixtes
 
 dt_temp<-dades %>% 
-  filter(n_episodis>=2) 
+  # filter(n_episodis>=2) %>% 
+  select(idp,id_episodi,grup_RAM,SOG50_60.valor,grup)
 
-dt_temp %>% select(idp,id_episodi,grup_RAM)
-  
+# Model lineal
+fit1<-lme4::glmer(SOG50_60.valor ~ grup_RAM + (1 | idp),data = dt_temp)
+sjPlot::tab_model(fit1)
 
-stats::glm(grup~grup_RAM, family = "binomial",data=dt_temp)
+# Model logistic
+fit2<-lme4::glmer(grup ~ grup_RAM + (1 | idp),family = binomial,data = dt_temp)
+sjPlot::tab_model(fit2)
 
-?glm
 
-descrTable(grup_RAM~grup+ edat + IMC.valor.previ +
-             SOG100_0.valor + SOG100_120.valor + SOG100_180.valor + sog100_60.valor + SOG50_0.valor + SOG50_60.valor+ SOG75_0.valor + SOG75_120.valor,
-           data=dt_temp, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
+# Model lineal Sense efectes mixes
+fit3<-glm(SOG50_60.valor ~ grup_RAM ,data = dt_temp)
+sjPlot::tab_model(fit3)
+
+
+# Model logistic Sense efectes mixes
+fit4<-glm(grup ~ grup_RAM ,data = dt_temp,family = binomial)
+sjPlot::tab_model(fit4)
+
+
+
+```
+
+
+
+```{r test_paired, eval=FALSE, include=FALSE}
+
+# Comparativa 2 unics episodis VIA t-student dades aparellades 
+
+# - Analisis Dones amb 2 o més episodis
+# - Models d'efectes mixtes
+
+
+# Preparo dades amb dones amb episodis RAM i epidosis noRAM
+dt_temp<-dades %>% 
+  select(idp,id_episodi,n_episodis,grup_RAM,SOG50_60.valor,grup) %>% 
+  na.delete() %>% 
+  filter(n_episodis==2) %>% 
+  group_by(idp) %>% 
+    mutate(NRam=sum(grup_RAM=="Yes")) %>% 
+    mutate(NNoRam=sum(grup_RAM=="No")) %>% 
+  ungroup() %>% 
+  filter(NRam>=1 & NNoRam>=1) 
+
+
+# Mode t-student dades aparellades
+pp1<-dt_temp %>% select(idp,grup_RAM,SOG50_60.valor) %>% 
+  filter(grup_RAM =="No") %>% mutate(yNo=SOG50_60.valor)
+
+pp2<-dt_temp %>% select(idp,grup_RAM,SOG50_60.valor) %>% 
+  filter(grup_RAM =="Yes") %>% mutate(yYes=SOG50_60.valor)
+
+dt_temp2<-pp1 %>% left_join(pp2,by="idp")
+
+t.test(Pair(yNo , yYes) ~ 1, data = dt_temp2)
 
 
 
@@ -329,10 +503,6 @@ descrTable(grup_RAM~grup+ edat + IMC.valor.previ +
 
 
 
-```{r filtres2}
-
-
-```
 
 
 
@@ -343,69 +513,6 @@ descrTable(grup_RAM~grup+ edat + IMC.valor.previ +
 
 
 
-```{r etiquetes}
-
-
-```
-
-
-
-# Resultats
-
-
-
-
-# Títol de primer nivell
-## Títol de segon nivell
-### Títol de tercer nivell
-*Text en cursiva*
-**Text en negreta**
-***Text en cursiva i negreta***
-L'equacio seria $e=mc^2$
-
-
-## Exploratoria General de totes les variables.
-
-
-```{r Descriptiu_exploratori, include=TRUE}
-
-
-compareGroups::descrTable(dades,method = 2,Q1=0,Q3=1,extra.labels = c("","","")) %>% export2md()
-
-table1::table1(~ .,dades)
-
-# gtsummary::tbl_summary(dades)
-
-gtsummary::tbl_summary(dades,
-                       type = all_continuous() ~ "continuous2",
-                       statistic = all_continuous() ~ c("{median} ({p25}, {p75})", "{min}, {max}"))
-
-
-
-```
-
-
-## Descriptiu
-
-```{r analisis_pergrups}
-
-
-
-```
-
-## Models estadistics
-
-```{r models_estadistics}
-
-
-```
-
-## Figures
-
-```{r}
-
-
-```
 
 # References
 
