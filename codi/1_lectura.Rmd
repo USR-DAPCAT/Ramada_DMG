@@ -17,8 +17,8 @@ output:
   word_document: default
 
 params:
-  fitxers_test: TRUE #FALSE #FALSE
-  directori_origen: "../DADES/epiDMGCAT/SIDIAP_NOV21/mostra"  # "../DADES/epiDMGCAT/SIDIAP_NOV21" "../DADES/epiDMGCAT/SIDIAP_NOV21/mostra"
+  fitxers_test: FALSE #FALSE #TRUE
+  directori_origen: "../DADES/epiDMGCAT/SIDIAP_NOV21"  # "../DADES/epiDMGCAT/SIDIAP_NOV21" "../DADES/epiDMGCAT/SIDIAP_NOV21/mostra"
 
 ---
 
@@ -167,7 +167,7 @@ dt_origen_musul<-
   group_by(idp) %>% 
    slice(which.max(MUSULMANA)) %>% 
     # summarise(MUSULMANA=max(MUSULMANA), origen=first(val_txt)) %>% 
-  ungroup() %>% select(idp,MUSULMANA)
+  ungroup() %>% select(idp,MUSULMANA,origen_cod=cod,origen_txt=val_txt)
  
 
 # # verificació origen musulma
@@ -178,41 +178,17 @@ dt_origen_musul<-
 
 ```
 
-```{r periode_exposicio_ramada}
+```{r MUSULMANA_origen}
 
-# Generar dt
 
-dt_ramada_periode<-
-  read_conductor(here::here(conductor_codis),sheet="periode_ramada") %>% 
-  transmute(year=as.character(year),periode1_RAM=as.Date(periode1),periode2_RAM=as.Date(periode2))
-
-# Definició de marge de seguretat a la finestra en dies
-epsilon<-30
-
-dt_temp<-
+dt_musul<-
   dt_index %>% 
+  left_join(dt_origen_musul, by="idp") 
   
-  left_join(dt_origen_musul, by="idp") %>%   # fILTRO NOMÉS MUSULMANES
-  filter(MUSULMANA==1) %>% 
-  
-  mutate(year=substr(as.character(dtindex),1,4)) %>% 
-  left_join(dt_ramada_periode, by="year") %>% 
-  mutate(grup_RAM=case_when(
-    
-    (ymd(dtindex) >= periode1_RAM- epsilon ) & (ymd(dtindex) <= periode2_RAM + epsilon)~ 1,
-    TRUE ~ 0
-    )
-    ) %>% 
-  select(idp,id_episodi,dtindex,periode1_RAM,periode2_RAM,grup_RAM) %>% 
-  # Filtro episodis posteriors o igual a 2010
-  filter(dtindex>=20100101)
-
-dt_ramada<-
-  dt_index %>% left_join (dt_origen_musul) %>% left_join(dt_temp) %>% 
-  filter(dtindex>=20100101)
 
 
 ```
+
 
 
 ```{r etnia_individu}
@@ -344,7 +320,7 @@ dt_plana<-
 dades<-
   dt_index %>% 
   left_join(dt_index_grupDMG,by=c("idp","dtindex","id_episodi")) %>% 
-  left_join(dt_ramada)%>% 
+  left_join(dt_musul,by=c("idp","dtindex","id_episodi"))%>% 
   left_join(dt_poblacio)%>% 
   left_join(dt_ambit)%>% 
   left_join(dt_socioeconomiques,by="idp") %>% 
@@ -355,175 +331,6 @@ dades<-
 ```
 
 
-
-```{r actualitzar_grupDMG}
-
-# Actualitzar grup DMG en funció del diagnostic de DMG
-
-library(lubridate)
-
-# dades %>% select(grup,DG.DMG)
-
-# defineixo finestra (). El temps en mediana es dies 32 [-315,86]
-finestra_DMG<-c(-90,180)
-dt_temp<-
-  dades %>% mutate(grup_SOG=grup) %>% 
-            mutate(DG.DMG_recent=case_when(
-                    dplyr::between(lubridate::ymd(DG.DMG)-lubridate::ymd(dtindex), finestra_DMG[1],finestra_DMG[2])~DG.DMG,
-                    TRUE~NA_integer_)) %>% 
-            mutate (grup_DG=if_else(DG.DMG_recent>0,1,0,missing = 0)) %>% 
-            mutate (grup=if_else(grup_SOG==1 | grup_DG==1,1,0)) 
-
-
-# dades %>% transmute(idp,grup,grup_SOG,grup_DG,DG.DMG_recent,dtindex,DG.DMG, dies=lubridate::ymd(DG.DMG)-lubridate::ymd(dtindex)) %>% 
-#   filter(grup==1 )
-
-
-# dt_temp %>% select(idp,id_episodi,grup,DG.DMG,grup_SOG, dtindex)
-
-dades<-dt_temp
-
-
-```
-
-```{r}
-
-# Mínims calculs 
-
-# Calcuila la edat 
-  calcula_edat<-function(dnaix,data) { 
-    edat=(lubridate::ymd(data)-lubridate::ymd(dnaix))
-    edat=as.numeric(edat/365.25) }
-
-dades<-dades %>%  mutate(edat=calcula_edat(dnaix,dtindex) %>% round(2))
-
-
-# filtre mínim 
-
-dades<-dades %>% 
-  filter(edat>=18 & edat<50) %>% 
-  filter(is.na(DG.DM)) %>% 
-  mutate(tempo1=if_else(GLICADA.valor.previ>=6.5,1,0,missing = 0),
-         tempo2=if_else(GLUCOSA.valor.previ>=126,1,0,missing=0)) %>% 
-  filter(tempo1==0 & tempo2==0)
- 
-
-```
-
-```{r descriptiva_global}
-
-
-dades$grup<-factor(dades$grup)
-dades$grup_RAM<-factor(dades$grup_RAM)
-
-descrTable(~.,data=dades, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
-
-descrTable(MUSULMANA~grup+
-             SOG100_0.valor + SOG100_120.valor + SOG100_180.valor + sog100_60.valor + SOG50_0.valor + SOG50_60.valor+ SOG75_0.valor + SOG75_120.valor,data=dades, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
-
-
-```
-
-
-
-```{r descriptiva_explo}
-
-descrTable(grup_RAM~.,data=dades, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
-
-
-
-
-descrTable(grup_RAM~grup+
-             SOG100_0.valor + SOG100_120.valor + SOG100_180.valor + sog100_60.valor + SOG50_0.valor + SOG50_60.valor+ SOG75_0.valor + SOG75_120.valor,data=dades, show.n = T, method = 2, Q1=0,Q3=1, extra.labels = c("","","")) %>% export2md()
-
-
-
-
- 
- 
-
-```
-
-
-
-
-# Criteris d'inclusió
-
-- Dins de període reclutament: 2010-2019
-- Sense diagnostic registrat de diabetes 
-- No DM segons analitica: (GLICADA>=6.5 o GLUCOSA>=126)
-- Edat >18 <=50 anys 
-- Gestants sense tractament Antidiabetic (Excepte metformina)
-
-```{r filtres, eval=FALSE}
-
-# Falta definir agrupadors d'antidiabetics
-
-# Filtres : edat, peridode d'inclusió 2010-2019, no DM
-
-# DM GLICADA.valor>=6.5 | GLUCOSA.valor>=126 (previ a data d'inclusió)
-dades<-
-  dades %>% 
-  mutate (exclusio_glicada=
-            if_else(GLICADA.valor>=6.5 | GLUCOSA.valor>=126,1,
-      
-                    0,missing = 0))
-
-# Sense tractament AD
-vars_FX_AD<-extreure.variables("farmac_AD",conductor)
-dades<-dades %>% comptar_valors(vars_FX_AD,"Yes") %>% rename(num_FXAD=num_valors)
-
-
-
-dades<-
-  dades %>% filter(edat>18 & edat<=50 & DG.DM=="No" &  
-                     any_inclusio%in% c(2010:2019),
-                   exclusio_glicada==0,
-                   num_FXAD==0) 
-
-
-```
-
-
-
-```{r recodes}
-
-preparar_dades<-function(dt=dades) {
-
-  dt<-dt %>% mutate_at(vars(starts_with("FP.") | starts_with("FD.") ),~if_else(!is.na(.),"Yes","No",missing = "No"))
-
-  dt<-dt %>% mutate_at(vars(starts_with("DG.")),~if_else(!is.na(.),"Yes","No",missing = "No"))
-
-  # Calcuila la edat 
-  calcula_edat<-function(dnaix,data) { 
-    edat=(lubridate::ymd(data)-lubridate::ymd(dnaix))
-    edat=as.numeric(edat/365.25) }
-  
-  dt<-dt %>%  mutate(edat=calcula_edat(dnaix,dtindex) %>% round(2))
-  
-  dt<-dt %>% mutate(any_inclusio=lubridate::year(lubridate::ymd(dtindex)))
-  
-  # Eliminar espais en blanc de pais
-  dt<-dt %>% mutate(agr_pais=stringr::str_trim(agr_pais))
-  
-  # Recode 0/1  --> Yes/No
-  vars<-c("tabac.valor","grup_DG","grup_SOG")
-  dt<-dt %>% mutate_at(vars,~if_else(.==1,"Yes","No",missing = "No"))
-  
-  # factoritzar
-  vars<-c("ambit")
-  dt<-dt %>% mutate_at(vars,as.factor) 
-  
-  # Recode to missings
-  dt<-dt %>% recode_to_missings(taulavariables=conductor,rang="rang_valid")
-  
-  # Recodes : Grups d'edat 
-  recodificar2(dt,taulavariables = conductor,criteris = "recodes",prefix = "grups")
-  }
-
-
-
-```
 
 
 

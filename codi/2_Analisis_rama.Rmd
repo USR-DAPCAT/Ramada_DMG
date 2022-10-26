@@ -192,13 +192,25 @@ Cada episodio se clasificará en dos grupos en función de si el periodo de emba
 
 ```{r}
 
-read_conductor(conductor_cataleg,sheet="periode_ramada") %>% transmute(Año=year,Periodo=paste0(periode1, "  al  ",periode2)) %>% 
+read_conductor(conductor_cataleg,sheet="periode_ramada") %>% transmute(Año=year,Periodo=paste0(periode1, "  ------  ",periode2),dias=dies) %>% 
   kable(caption = "Periodo de Ramadá definido",align="c") %>% kableExtra::kable_classic_2()
 
 
 
 ```
 
+## Listado de paises detectados de poblaciones musulmanas 
+
+```{r}
+
+dades %>% 
+  filter(MUSULMANA==1) %>% 
+  select(origen_cod,origen_txt) %>% arrange(origen_cod) %>% 
+  distinct(origen_cod,origen_txt) %>% 
+  kable(caption = "Paises detectados de poblaciones musulmanas",align="l") %>% kableExtra::kable_classic_2()
+
+
+```
 
 
 ***
@@ -228,6 +240,64 @@ knitr::write_bib(c("lme4","base", "ggplot2","stats", "effectsize"),file="referen
 
 ```
 
+```{r periode_exposicio_ramada,eval=TRUE, message=TRUE}
+
+# Definició de marge de seguretat a la finestra en dies Periodes RAMADA
+epsilon<-5
+
+# Generar dt
+dt_ramada_periode<-
+  read_conductor(here::here(conductor_cataleg),sheet="periode_ramada") %>% 
+  transmute(year=as.character(year),periode1_RAM=as.Date(periode1),periode2_RAM=as.Date(periode2))
+
+dt_temp<-dades %>% 
+  mutate(year=substr(as.character(dtindex),1,4)) %>% 
+  left_join(dt_ramada_periode, by="year") %>% 
+  mutate(grup_RAM=case_when(
+    (ymd(dtindex) >= periode1_RAM- epsilon ) & (ymd(dtindex) <= periode2_RAM + epsilon)~ 1,
+    TRUE ~ 0
+    )) %>% 
+  select(idp,id_episodi,dtindex,periode1_RAM,periode2_RAM,grup_RAM) 
+
+
+# Fusio
+dades<-dt_temp %>% left_join(dades,by = c("idp", "id_episodi", "dtindex"))
+
+
+```
+
+```{r actualitzar_grupDMG, eval=TRUE}
+
+# Actualitzar grup DMG en funció del diagnostic de DMG
+
+library(lubridate)
+
+# dades %>% select(grup,DG.DMG)
+
+# defineixo finestra (). El temps en mediana es dies 32 [-315,86]
+finestra_DMG<-c(-90,180)
+dt_temp<-
+  dades %>% mutate(grup_SOG=grup) %>% 
+            mutate(DG.DMG_recent=case_when(
+                    dplyr::between(lubridate::ymd(DG.DMG)-lubridate::ymd(dtindex), finestra_DMG[1],finestra_DMG[2])~DG.DMG,
+                    TRUE~NA_integer_)) %>% 
+            mutate (grup_DG=if_else(DG.DMG_recent>0,1,0,missing = 0)) %>% 
+            mutate (grup=if_else(grup_SOG==1 | grup_DG==1,1,0)) 
+
+
+# dt_temp %>% select(grup_SOG,DG.DMG_recent,grup_DG,grup,DG.DMG)
+# 
+# dt_temp %>% 
+#   transmute(idp,grup,grup_SOG,grup_DG,DG.DMG_recent,dtindex,DG.DMG, dies=lubridate::ymd(DG.DMG)-lubridate::ymd(dtindex)) %>% 
+#   filter(grup==1)
+
+
+# dt_temp %>% select(idp,id_episodi,grup,DG.DMG,grup_SOG, dtindex)
+
+dades<-dt_temp
+
+
+```
 
 ```{r primers_recodes, include=FALSE}
 
@@ -250,7 +320,7 @@ dt<-dades
   dt<-dt %>% mutate(agr_pais=stringr::str_trim(agr_pais))
   
   # Recode 0/1  --> Yes/No
-  vars<-c("tabac.valor","grup_DG","grup_SOG", "MUSULMANA","grup_RAM")
+  vars<-c("tabac.valor","grup_DG","grup_SOG", "MUSULMANA","grup_RAM","grup")
   dt<-dt %>% mutate_at(vars,~if_else(.==1,"Yes","No",missing = "No"))
   
   # factoritzar
@@ -272,7 +342,7 @@ dt<-dades
 ```{r}
 
 dades<-dt
-rm(dt)
+rm(dt,dt_temp)
 
 ```
 
@@ -291,7 +361,7 @@ rm(dt)
 - Edat >18 <=50 anys 
 - Gestants sense tractament Antidiabetic (Excepte metformina)
 
-```{r generofiltres, TRUE}
+```{r generofiltres, eval=TRUE}
 # Falta definir agrupadors d'antidiabetics
 
 # Filtres : edat, peridode d'inclusió 2010-2019, no DM
