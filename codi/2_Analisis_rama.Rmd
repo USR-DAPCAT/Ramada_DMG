@@ -109,6 +109,7 @@ dades<-readRDS(here::here(directori_dades,"dt_plana.Rds"))
 conductor_cataleg<-here::here("cataleg_epiDMG.xls")
 
 
+dades %>% select(idp,agr_pais,origen_cod,origen_txt) %>% filter(origen_txt=="A")
 
 #
 
@@ -165,7 +166,7 @@ Dins de cada episodi es classifica en DMG / no DMG en funció de les determinaci
 
 **A) Diabetis gestacional:** 
    
--Definició: SOG50_60min>140 i >2 valors alterats de la SOG100: SOG100_0min > 95; SOG100_60min > 180; SOG100_120min > 155; SOG100_180min > 140
+-Definició: SOG50_60min>140 i >=2 valors alterats de la SOG100: SOG100_0min > 95; SOG100_60min > 180; SOG100_120min > 155; SOG100_180min > 140
 
 Nota: Es comenta que en les dones que tinguin SOG50_60min > 140 però que no disposem de SOG100 o aquesta estigui incompleta (per vòmits, intolerancia, etc) es farà una estimació del % de possibles DMG en funció del percentatge de dones amb cribratge positiu (SOG50_60min > 140) i test diagnòstic positiu (SOG100 > 2 valors)
 
@@ -192,7 +193,9 @@ Cada episodio se clasificará en dos grupos en función de si el periodo de emba
 
 ```{r}
 
-read_conductor(conductor_cataleg,sheet="periode_ramada") %>% transmute(Año=year,Periodo=paste0(periode1, "  ------  ",periode2),dias=dies) %>% 
+
+
+read_conductor(conductor,sheet="periode_ramada") %>% transmute(Año=year,Periodo=paste0(periode1, "  ------  ",periode2),dias=dies) %>% 
   kable(caption = "Periodo de Ramadá definido",align="c") %>% kableExtra::kable_classic_2()
 
 
@@ -208,6 +211,24 @@ dades %>%
   select(origen_cod,origen_txt) %>% arrange(origen_cod) %>% 
   distinct(origen_cod,origen_txt) %>% 
   kable(caption = "Paises detectados de poblaciones musulmanas",align="l") %>% kableExtra::kable_classic_2()
+
+
+```
+
+
+```{r}
+
+dades %>% 
+  filter(MUSULMANA==1) %>% 
+  group_by(agr_pais) %>% count() %>% arrange(desc(n)) %>% 
+  kable(caption = "Paises de origen de poblaciones musulmanas",align="l") %>% kableExtra::kable_classic_2()
+
+dades %>% 
+  filter(MUSULMANA==1) %>% 
+  filter(origen_txt =="A" & origen_cod =="PACR003") %>% 
+  group_by(agr_pais) %>% count() %>% arrange(desc(n)) %>% 
+  kable(caption = "Paises detectados de poblaciones musulmanas origen_txt =A",align="l") %>% kableExtra::kable_classic_2()
+
 
 
 ```
@@ -247,7 +268,7 @@ epsilon<-5
 
 # Generar dt
 dt_ramada_periode<-
-  read_conductor(here::here(conductor_cataleg),sheet="periode_ramada") %>% 
+  read_conductor(here::here(conductor),sheet="periode_ramada") %>% 
   transmute(year=as.character(year),periode1_RAM=as.Date(periode1),periode2_RAM=as.Date(periode2))
 
 dt_temp<-dades %>% 
@@ -268,36 +289,44 @@ dades<-dt_temp %>% left_join(dades,by = c("idp", "id_episodi", "dtindex"))
 
 ```{r actualitzar_grupDMG, eval=TRUE}
 
-# Actualitzar grup DMG en funció del diagnostic de DMG
+# Actualitzar grup DMG en funció del diagnostic via codi CIM10 de DMG
+
+
+# dades %>% select(dtindex,grup,DG.post.DMG,DG.DMG)
+
 
 library(lubridate)
 
 # dades %>% select(grup,DG.DMG)
 
 # defineixo finestra (). El temps en mediana es dies 32 [-315,86]
-finestra_DMG<-c(-90,180)
+finestra_DMG<-c(-90,90)
 dt_temp<-
-  dades %>% mutate(grup_SOG=grup) %>% 
-            mutate(DG.DMG_recent=case_when(
-                    dplyr::between(lubridate::ymd(DG.DMG)-lubridate::ymd(dtindex), finestra_DMG[1],finestra_DMG[2])~DG.DMG,
-                    TRUE~NA_integer_)) %>% 
+   dades %>% # select(dtindex,DG.post.DMG,DG.DMG,grup) %>% 
+            mutate(grup_SOG=grup) %>% 
+            mutate(dies_DMG=(lubridate::ymd(DG.post.DMG)-lubridate::ymd(dtindex)) %>% as.numeric()) %>% 
+            mutate(DG.DMG_recent=case_when(dies_DMG>finestra_DMG[1] & dies_DMG<finestra_DMG[2] ~ DG.post.DMG,
+                   TRUE~NA_integer_)) %>% 
             mutate (grup_DG=if_else(DG.DMG_recent>0,1,0,missing = 0)) %>% 
             mutate (grup=if_else(grup_SOG==1 | grup_DG==1,1,0)) 
 
 
-# dt_temp %>% select(grup_SOG,DG.DMG_recent,grup_DG,grup,DG.DMG)
+# dt_temp %>% select(dtindex,grup_SOG,DG.DMG_recent,grup_DG,grup,DG.DMG) %>% filter(grup_DG==1 | grup_SOG==1)
+# dt_temp %>% filter(DG.DMG_recent>0)
+
 # 
 # dt_temp %>% 
 #   transmute(idp,grup,grup_SOG,grup_DG,DG.DMG_recent,dtindex,DG.DMG, dies=lubridate::ymd(DG.DMG)-lubridate::ymd(dtindex)) %>% 
 #   filter(grup==1)
 
-
-# dt_temp %>% select(idp,id_episodi,grup,DG.DMG,grup_SOG, dtindex)
+# dt_temp %>% select(idp,id_episodi,grup,DG.DMG,grup_SOG, dtindex,DG.DMG_recent) %>% filter(grup==1)
 
 dades<-dt_temp
 
 
 ```
+
+
 
 ```{r primers_recodes, include=FALSE}
 
@@ -315,6 +344,8 @@ dt<-dades
   dt<-dt %>%  mutate(edat=calcula_edat(dnaix,dtindex) %>% round(2))
   
   dt<-dt %>% mutate(any_inclusio=lubridate::year(lubridate::ymd(dtindex)))
+  
+  dt<-dt %>% mutate(mes_inclusio=substr(dtindex,5,6))
   
   # Eliminar espais en blanc de pais
   dt<-dt %>% mutate(agr_pais=stringr::str_trim(agr_pais))
@@ -376,6 +407,7 @@ dades<-
 
 # Sense tractament AD
 vars_FX_AD<-extreure.variables("farmac_AD",taulavariables=conductor)
+
 
 
 dades<-dades %>% comptar_valors(vars_FX_AD,"Yes") %>% rename(num_FXAD=num_valors)
@@ -500,20 +532,75 @@ descrTable(grup_RAM~grup + grup_SOG + edat + IMC.valor.previ +
 ```
 
 
+```{r}
 
-```{r M_efectes_mixtes, eval=FALSE,include=FALSE}
 
-# Descriptiva comparativa tenint en compte idp 
+```
 
+```{r validacio_DMG_segons_analitica,eval=FALSE}
+
+# -Definició: SOG50_60min>140 i >=2 valors alterats de la SOG100: SOG100_0min > 95; SOG100_60min > 180; SOG100_120min > 155; SOG100_180min > 140
+
+dades %>% select(grup_SOG,
+                 SOG50_60.valor,
+                   sog100_60.valor,
+                   SOG100_120.valor,
+                   SOG100_180.valor)
+
+
+```
+
+
+```{r M_efectes_mixtes_MUSUL, eval=FALSE,include=FALSE}
+# Test by clusters and smothing splines
 # - Models d'efectes mixtes
-
 dt_temp<-dades %>% 
   # filter(n_episodis>=2) %>% 
-  select(idp,id_episodi,grup_RAM,SOG50_60.valor,grup)
+  transmute(idp,id_episodi,
+            grup_RAM=as.numeric(grup_RAM=="Yes"),
+            SOG50_60.valor,
+            sog100_60.valor,
+            SOG100_120.valor,
+            SOG100_180.valor,
+            grup=as.factor(grup),
+            grup_SOG=as.factor(grup_SOG),
+            mes_inclusio,time=ymd(dtindex) %>% as.numeric(),idp_num=as.factor(idp) %>% as.numeric())
 
 # Model lineal
 fit1<-lme4::glmer(SOG50_60.valor ~ grup_RAM + (1 | idp),data = dt_temp)
 sjPlot::tab_model(fit1)
+
+
+# Model lineal
+fit1<-lme4::glmer(SOG100_180.valor ~ grup_RAM + (1 | idp),data = dt_temp)
+sjPlot::tab_model(fit1)
+
+
+# Model lineal
+fit1<-lme4::glmer(grup_SOG ~ grup_RAM + (1 | idp),family = binomial(),data = dt_temp)
+sjPlot::tab_model(fit1)
+
+
+# Model lineal
+fit1<-lme4::glmer(grup ~ grup_RAM + (1 | idp),family = binomial(),data = dt_temp)
+sjPlot::tab_model(fit1)
+
+```
+
+
+```{r M_efectes_mixtes_SEMIPAR, eval=FALSE,include=FALSE}
+
+
+# Model lineal semiparametric (Ull no funciona)
+fit_gam<-mgcv::gam(SOG50_60.valor ~ grup_RAM + (1 | idp_num) ,data = dt_temp)
+summary(fit_gam)
+
+parameters::model_parameters(fit_gam)
+
+
+fit_gam<-gamm4::gamm4(SOG50_60.valor ~ grup_RAM + s(time),data = dt_temp)
+summary(fit_gam)
+sjPlot::tab_model(fit_gam)
 
 # Model logistic
 fit2<-lme4::glmer(grup ~ grup_RAM + (1 | idp),family = binomial,data = dt_temp)
@@ -534,8 +621,44 @@ sjPlot::tab_model(fit4)
 ```
 
 
+```{r model_mes, include=FALSE,eval=FALSE}
 
-```{r test_paired, eval=FALSE, include=FALSE}
+# Model lineal incloent mes, Mesos potencials RAMADA : (periode) 
+
+dt_temp<-dades %>% 
+  # filter(n_episodis>=2) %>% 
+  filter(as.numeric(mes_inclusio)%in%c(5:9)) %>% 
+  transmute(idp,id_episodi,grup_RAM,SOG50_60.valor,grup=as.factor(grup),grup_SOG=as.factor(grup_SOG),mes_inclusio)
+
+# Model lineal
+fit1<-lme4::glmer(SOG50_60.valor ~ grup_RAM + (1 | idp),data = dt_temp)
+sjPlot::tab_model(fit1)
+
+# Model lineal
+fit2<-lme4::glmer(SOG50_60.valor ~ grup_RAM + mes_inclusio + (1 | idp),data = dt_temp)
+sjPlot::tab_model(fit2)
+
+
+# Model logistic
+
+# Model logistic
+fit2<-lme4::glmer(grup ~ grup_RAM + (1 | idp),family = binomial,data = dt_temp)
+summary(fit2)
+sjPlot::tab_model(fit2)
+
+
+# Model logistic
+fit2<-lme4::glmer(grup_SOG ~ grup_RAM + (1 | idp),family = binomial,data = dt_temp)
+summary(fit2)
+sjPlot::tab_model(fit2)
+
+
+
+
+```
+
+
+```{r test_paired, eval=FALSE, include=TRUE}
 
 # Comparativa 2 unics episodis VIA t-student dades aparellades 
 

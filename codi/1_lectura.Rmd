@@ -260,6 +260,31 @@ dt_facturats<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_jo
 
 ```
 
+```{r fusio_farmacs}
+
+# Convertir facturats --> prescrits a 30 dies per envas 
+formatar_facturats<-function(dt=dt_facturats) {
+  dt<-dt %>% mutate(dat=lubridate::ymd(paste0(as.character(dat),"15")),dbaixa=dat+(30*env),
+           dat=data.to.string(dat) %>% as.numeric(),
+           dbaixa=data.to.string(dbaixa) %>% as.numeric())
+  dt}
+
+dt_temp_facturats<-formatar_facturats(dt_facturats)
+# dt_temp_prescrits<-formatar_prescrits(dt_prescrits)
+
+dt_temp_farmacs<-dt_temp_facturats %>% bind_rows(dt_prescrits) %>% select(idp,cod,dat,dbaixa)
+
+dt_prescrits_fac<-agregar_solapaments_gaps(dt_temp_farmacs,id=c("idp","cod"),datainici="dat",datafinal="dbaixa",gap = 30)
+
+# Transformar a tipus origen
+dt_prescrits_fac<-dt_prescrits_fac %>% 
+  mutate(dat=data.to.string(dat),dbaixa=data.to.string(dbaixa)) %>% 
+  mutate(dat=as.integer(dat),dbaixa=as.integer(dbaixa))
+
+
+```
+
+
 
 ```{r preparar_agregacio_analitiques}
 
@@ -297,12 +322,16 @@ dt_assir<-readRDS(here::here(directori_dades_origen,fitxer_txt)) %>% semi_join(d
 
 # dt_diagnostics<-dt_diagnostics %>% mutate(dat=as.character(dat))
 
+
+
 dt_plana<- 
   dt_index %>% 
   transmute(idp,id_episodi,dtindex) %>% 
   # transmute(idp,dtindex=as.numeric(dtindex)) %>% 
   Generar_taula_plana(cataleg = dt_cataleg,
                     parametres = conductor_codis,sheet="parametres")
+
+
 
 
 # dt_diagnostics

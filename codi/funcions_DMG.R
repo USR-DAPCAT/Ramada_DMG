@@ -40,7 +40,6 @@ generacio_num_episodi_index<-function() {
 }
 
 
-
 generacio_data_index<-function(dt_index_long) {
 
   # Agrego per id episodi 
