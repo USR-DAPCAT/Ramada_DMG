@@ -15,7 +15,7 @@ output:
     css: logos_css/usr_styles.css
     
 params:
-  fitxers_test: TRUE #FALSE #FALSE
+  fitxers_test: FALSE #FALSE #TRUE
 
 bibliography: "references.bib"
 
