@@ -15,7 +15,7 @@ output:
     css: logos_css/usr_styles.css
     
 params:
-  fitxers_test: FALSE #FALSE #FALSE
+  fitxers_test: TRUE #FALSE #FALSE
 
 bibliography: "references.bib"
 
@@ -72,12 +72,19 @@ library("compareGroups")
 library("magrittr")
 library("ggplot2")
 # library("scales")
-#
-#
-# Descarregar funcions github -
-link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funcions_propies.R","?raw=T")
-devtools::source_url(link_source)
+library(FormatGe)
+library(kableExtra)
 
+
+#
+#
+# # Descarregar funcions github -
+# link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funcions_propies.R","?raw=T")
+# devtools::source_url(link_source)
+
+# devtools::install_github("USR-DAPCAT/Platan")
+# devtools::install_github("USR-DAPCAT/FormatGe")
+# devtools::install_github("USR-DAPCAT/Macedonia")
 
 if (params$fitxers_test) directori_dades<-"dades/mostra" else directori_dades<-"dades"
 
@@ -109,7 +116,7 @@ dades<-readRDS(here::here(directori_dades,"dt_plana.Rds"))
 conductor_cataleg<-here::here("cataleg_epiDMG.xls")
 
 
-dades %>% select(idp,agr_pais,origen_cod,origen_txt) %>% filter(origen_txt=="A")
+# dades %>% select(idp,agr_pais,origen_cod,origen_txt) %>% filter(origen_txt=="A")
 
 #
 
@@ -246,7 +253,7 @@ Se considerá como estadísticamente significativo p valores inferiores a 0.05 s
 ```{r citacions, include=FALSE, message=FALSE}
 
 
-knitr::write_bib(c("lme4","base", "ggplot2","stats", "effectsize"),file="references.bib")
+# knitr::write_bib(c("lme4","base", "ggplot2","stats", "effectsize"),file="references.bib")
 # 
 # library(bibtex)
 # 
@@ -311,8 +318,10 @@ dt_temp<-
             mutate (grup=if_else(grup_SOG==1 | grup_DG==1,1,0)) 
 
 
-# dt_temp %>% select(dtindex,grup_SOG,DG.DMG_recent,grup_DG,grup,DG.DMG) %>% filter(grup_DG==1 | grup_SOG==1)
-# dt_temp %>% filter(DG.DMG_recent>0)
+# dt_temp %>% 
+#   select(dtindex,grup_SOG,DG.DMG_recent,grup_DG,grup,DG.DMG) %>% 
+#   filter(grup_DG==1 | grup_SOG==1 | DG.DMG_recent>0 ) %>% 
+#   filter(DG.DMG_recent>0) %>% filter (grup==0)
 
 # 
 # dt_temp %>% 
@@ -362,8 +371,9 @@ dt<-dades
   dt<-dt %>% recode_to_missings(taulavariables=conductor,rang="rang_valid")
   
   # Recodes : Grups d'edat 
-  dt<-recodificar2(dt,taulavariables = conductor,criteris = "recodes",prefix = "grups")
-  
+  dt<-recodificar(dt,taulavariables = conductor,criteris = "recodes",prefix = ".grups")
+  # dt<-recodificar(dt,taulavariables = conductor,criteris = "recodes",prefix = "grups")
+
 
 
 ```
@@ -433,21 +443,63 @@ dades %>% ggflowchart::Generar_flow_chart_consort(taulavariables=conductor,
 
 ```{r aplicofiltres, TRUE}
 
+# dt_temp<-
+#   dades %>% filter(edat>18 & edat<=50 & 
+#                      DG.DM=="No" &  
+#                      any_inclusio%in% c(2010:2019),
+#                      exclusio_glicada==0,
+#                      num_FXAD==0) 
+
+
 dades<-
-  dades %>% filter(edat>18 & edat<=50 & 
-                     DG.DM=="No" &  
-                     any_inclusio%in% c(2010:2019),
-                     exclusio_glicada==0,
-                     num_FXAD==0) 
+  dades %>% criteris_exclusio_ggconsort(taulavariables=conductor,
+                                      sheet="criteris_exclusio",
+                                      criteris="exclusio")
+
 
 
 ```
+
+
+```{r matching}
+
+# Preparar dades pel matching
+
+# Selecciono paisos de origen no musulmà
+
+dades<-dades %>% mutate(pais_grup=case_when(MUSULMANA=="Yes"~1, 
+                                     MUSULMANA=="No" & agr_pais=="Espanya" ~ 0))
+# 
+dades<-dades %>% mutate(dtindex=as.integer(dtindex))
+
+# Carrego missings
+dades<-dades %>% filter(pais_grup>=0)
+
+# Missings
+set.seed(123)
+M.out<-MatchIt::matchit(pais_grup~edat+dtindex, data=dt_temp,ratio = 1)
+
+summary(M.out)
+covariate_plot(M.out)
+
+dt_match<-MatchIt::get_matches(M.out) %>% select(idp,id_episodi,subclass) %>% mutate(matching=1)
+
+
+dades<-dades %>% left_join(dt_match) %>% mutate(matching=if_else(matching==1,1,0,missing=0))
+
+table(dades$matching)
+
+```
+
 
 # Flow-chart 2
 
 ```{r}
 
-dades %>% ggflowchart::Flow_chart_Consort("MUSULMANA=='No'", lab_exclusions = "Paisos No musulmans")
+dades %>% ggflowchart::Flow_chart_Consort(c("MUSULMANA=='No'","matching==0"), lab_exclusions = "Paisos No musulmans")
+
+
+dades %>% ggflowchart::Flow_chart_Consort("matching==0", lab_exclusions = "Paisos No musulmans", grups ="pais_grup" )
 
 
 
@@ -567,35 +619,85 @@ dt_temp<-dades %>%
             mes_inclusio,time=ymd(dtindex) %>% as.numeric(),idp_num=as.factor(idp) %>% as.numeric())
 
 # Model lineal
-fit1<-lme4::glmer(SOG50_60.valor ~ grup_RAM + (1 | idp),data = dt_temp)
+fit1<-lme4::glmer(SOG50_60.valor ~ grup_RAM + id_episodi + (1 | idp),data = dt_temp)
+sjPlot::tab_model(fit1)
+
+# Model lineal
+fit1<-lme4::glmer(sog100_60.valor ~ grup_RAM + id_episodi + (1 | idp),data = dt_temp)
 sjPlot::tab_model(fit1)
 
 
 # Model lineal
-fit1<-lme4::glmer(SOG100_180.valor ~ grup_RAM + (1 | idp),data = dt_temp)
+fit1<-lme4::glmer(SOG100_120.valor ~ grup_RAM + id_episodi + (1 | idp),data = dt_temp)
 sjPlot::tab_model(fit1)
 
 
 # Model lineal
-fit1<-lme4::glmer(grup_SOG ~ grup_RAM + (1 | idp),family = binomial(),data = dt_temp)
+fit1<-lme4::glmer(SOG100_180.valor ~ grup_RAM + id_episodi + (1 | idp),data = dt_temp)
 sjPlot::tab_model(fit1)
 
 
-# Model lineal
-fit1<-lme4::glmer(grup ~ grup_RAM + (1 | idp),family = binomial(),data = dt_temp)
+# Model logistic
+fit1<-lme4::glmer(grup_SOG ~ grup_RAM + id_episodi + (1 | idp),family = binomial(),data = dt_temp)
 sjPlot::tab_model(fit1)
+
 
 ```
+
+# Tenint en compte l'efecte estacional
+
+
+```{r}
+
+
+
+extreure_coeficients_GAM<-function(dt=dt_temp,outcome="SOG50_60.valor") {
+  
+  dt=dt_temp %>% sample_n(1000)
+  outcome="SOG50_60.valor"
+  
+  formula<-"SOG50_60.valor ~ grup_RAM + id_episodi + s(time)"
+  
+  # library(mgcv)
+  
+  gam.ME = mgcv::gamm(as.formula(formula), data=dt_temp, random=list(idp=~1))  
+  
+  gam.ME
+  
+  
+  fit_gam<-mgcv::gam(SOG50_60.valor ~ grup_RAM + id_episodi + s(time) + cluster(idp) ,data = dt)
+  
+  }
+
+
+# Model lineal semiparametric (Ull no funciona)
+fit_gam<-mgcv::gam(SOG50_60.valor ~ grup_RAM + id_episodi + s(time) + cluster(idp) ,data = dt_temp)
+summary(fit_gam)
+
+
+
+```
+
 
 
 ```{r M_efectes_mixtes_SEMIPAR, eval=FALSE,include=FALSE}
 
 
-# Model lineal semiparametric (Ull no funciona)
-fit_gam<-mgcv::gam(SOG50_60.valor ~ grup_RAM + (1 | idp_num) ,data = dt_temp)
-summary(fit_gam)
+dt_temp<-dt_temp %>% sample_n(1000)
 
-parameters::model_parameters(fit_gam)
+# Model lineal semiparametric (Ull no funciona)
+
+gam.ME = mgcv::gamm(SOG50_60.valor ~ grup_RAM + s(time), data=dt_temp, random=list(idp=~1))  
+gam.ME = mgcv::gamm(SOG50_60.valor ~ grup_RAM , data=dt_temp)  
+summary(gam.ME$lme)
+summary(gam.ME$gam)
+gam.ME$gam %>% sjPlot::tab_model()
+names(gam.ME$lme$coefficients)
+
+# Model lineal
+fit1<-lme4::glmer(SOG50_60.valor ~ grup_RAM + (1 | idp),data = dt_temp)
+sjPlot::tab_model(fit1)
+
 
 
 fit_gam<-gamm4::gamm4(SOG50_60.valor ~ grup_RAM + s(time),data = dt_temp)

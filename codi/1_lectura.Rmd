@@ -17,8 +17,8 @@ output:
   word_document: default
 
 params:
-  fitxers_test: FALSE #FALSE #TRUE
-  directori_origen: "../DADES/epiDMGCAT/SIDIAP_NOV21"  # "../DADES/epiDMGCAT/SIDIAP_NOV21" "../DADES/epiDMGCAT/SIDIAP_NOV21/mostra"
+  fitxers_test: TRUE #FALSE #TRUE
+  directori_origen: "../DADES/epiDMGCAT/SIDIAP_NOV21/mostra"  # "../DADES/epiDMGCAT/SIDIAP_NOV21" "../DADES/epiDMGCAT/SIDIAP_NOV21/mostra"
 
 ---
 
